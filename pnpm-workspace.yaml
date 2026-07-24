@@ -1,0 +1,23 @@
+allowBuilds:
+  '@parcel/watcher': false
+  '@tailwindcss/oxide': false
+  esbuild: false
+  unrs-resolver: false
+  vue-demi: false
+
+# Two copies of Vue in one bundle break hydration at runtime with an opaque
+# "Cannot read properties of null (reading 'ce')" and a blank 500 page — the
+# SSR HTML is correct, only the client crashes, which makes it hard to trace.
+#
+# @nuxt/test-utils resolves an older vue than @nuxt/ui does, so pin the whole
+# family to one version. Bump these together when upgrading Vue.
+#
+# NOTE: pnpm 11 no longer reads `pnpm.overrides` from package.json — overrides
+# live here. Putting them in package.json fails silently with only a warning.
+overrides:
+  vue: 3.5.40
+  '@vue/runtime-core': 3.5.40
+  '@vue/runtime-dom': 3.5.40
+  '@vue/shared': 3.5.40
+  '@vue/server-renderer': 3.5.40
+  '@vue/compiler-sfc': 3.5.40

@@ -1,0 +1,19 @@
+# Project override — component API lookups
+
+The upstream SKILL.md says to use the Nuxt UI MCP server for props, slots and
+events. **This project ships no MCP server on purpose.** Use these instead —
+both are version-exact for the installed @nuxt/ui (4.10.0) and far cheaper
+in context than a docs page:
+
+| You need | Read | Cost |
+|---|---|---|
+| Props, slots, events for `<UButton>` | `node_modules/@nuxt/ui/dist/runtime/components/Button.vue.d.ts` | ~500 tokens |
+| Allowed `color`/`variant`/`size` values | `.nuxt/ui/button.ts` (top of file) | read the first ~40 lines |
+| Which component to use, how to compose | `SKILL.md` + `references/` here | — |
+
+The equivalent doc page on ui.nuxt.com is ~28 KB (~7K tokens) for a single
+component, is not pinned to your installed version, and needs the network.
+
+`.nuxt/` is generated — run `pnpm nuxt prepare` (or `pnpm dev`) if it's absent.
+It also reflects your own `app/app.config.ts` theme overrides, which the
+published docs cannot know about.

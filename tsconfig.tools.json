@@ -1,0 +1,37 @@
+{
+  // Nuxt's generated project references cover app/, server/, shared/ and
+  // nuxt.config only — root-level tooling files and tests/ fall through the
+  // gap and would be typechecked by nothing.
+  //
+  // Checked by `pnpm typecheck` as a separate pass:
+  //   tsc -p tsconfig.tools.json
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext"],
+    "types": ["node"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    // Mirrors the alias Nuxt generates, so tests import `#shared/...` with
+    // exactly the same specifier the app and server use.
+    "paths": {
+      "#shared": ["./shared"],
+      "#shared/*": ["./shared/*"]
+    }
+  },
+  "include": [
+    "drizzle.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts",
+    "scripts/**/*.ts",
+    "tests/**/*.ts",
+    // Pulled in because scripts and tests import the schema and client.
+    "server/database/**/*.ts",
+    "server/utils/posts.ts",
+    "shared/**/*.ts"
+  ]
+}

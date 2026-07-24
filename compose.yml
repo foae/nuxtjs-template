@@ -1,0 +1,32 @@
+name: nuxtjs-template
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+      # Deterministic collation so ORDER BY results match across machines.
+      POSTGRES_INITDB_ARGS: '--locale=C --encoding=UTF8'
+    ports:
+      # Override with POSTGRES_PORT if 5432 is already taken on your machine.
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      # Postgres 18+ wants ONE mount at /var/lib/postgresql, not at
+      # /var/lib/postgresql/data as older guides (and most LLM training data)
+      # say. The image places PGDATA in a version-specific subdirectory so
+      # `pg_upgrade --link` works. Mounting .../data makes the container
+      # start unhealthy. Don't "fix" this back.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      # `pnpm db:up` waits on this, so migrations never race the server.
+      test: ['CMD-SHELL', 'pg_isready -U app -d app']
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  pgdata:
