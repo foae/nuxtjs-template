@@ -20,6 +20,13 @@ CI runs — there is no separate list of checks that can drift from this one.
 
 If it fails, fix it. Do not report success with a failing verify.
 
+**Green verify does not mean correct.** It catches *mechanical* mistakes —
+type errors, style, a forgotten migration, a contract that no longer matches
+its table. It cannot catch a wrong rule in a handler. A PATCH bug that silently
+wiped post bodies passed all four checks and shipped; only reading the
+behaviour caught it. For anything touching data, exercise the actual endpoint
+(`pnpm db:reset`, then curl it or write an e2e test) before calling it done.
+
 ---
 
 ## Where things go
@@ -27,8 +34,11 @@ If it fails, fix it. Do not report success with a failing verify.
 | Task | Location |
 |---|---|
 | Add a page / route | `app/pages/` — file-based routing |
+| Change site chrome (nav, footer) | `app/layouts/default.vue` — **not** `app/app.vue` |
+| Change the error page | `app/error.vue` — renders *instead of* the layout |
 | Add a UI component | `app/components/` — auto-imported |
 | Add a client composable | `app/composables/` — auto-imported |
+| **Submit a form to the API** | **`useApiForm()`** — never hand-roll `$fetch` + error state |
 | Add an API endpoint | `server/api/` — file = route, `.get.ts`/`.post.ts` = method |
 | Add a server helper | `server/utils/` — **auto-imported across the server** |
 | Change the database | `server/database/schema.ts`, then `pnpm db:generate` |
@@ -42,14 +52,51 @@ The vertical slice for **posts** is the reference implementation. To add a new
 resource, copy its shape end to end:
 
 ```
-server/database/schema.ts     table + relations
-shared/schemas/post.ts        zod contract (what crosses the wire)
-shared/types/api.ts           response types (type-only import from schema)
-server/utils/posts.ts         row -> API mapping (the ONLY place it becomes JSON)
-server/api/posts/*.ts         handlers
-app/pages/posts/*.vue         pages
-tests/unit/schema-drift.test.ts   keeps contract and table aligned
+server/database/schema.ts        table + relations
+shared/schemas/post.ts           zod contracts — create AND update (see below)
+shared/types/api.ts              response types (type-only import from schema)
+server/utils/posts.ts            row -> API mapping (the ONLY place it becomes JSON)
+server/api/posts/index.get.ts    list (visibility rules)
+server/api/posts/index.post.ts   create (owner from session)
+server/api/posts/[id].get.ts     read
+server/api/posts/[id].patch.ts   update
+server/api/posts/[id].delete.ts  delete
+app/pages/posts/                 new.vue, [id]/index.vue, [id]/edit.vue
 ```
+
+You do **not** need to write a drift test per resource.
+`tests/unit/schema-drift.test.ts` discovers every `*CreateSchema` in
+`shared/schemas/` and checks it against the matching table by convention
+(`commentCreateSchema` → `comments`). Adding a table with no contract fails
+that suite until you write one or record the exemption in
+`TABLES_WITHOUT_A_WIRE_CONTRACT` with a reason.
+
+### Forms
+
+Use `useApiForm()` (`app/composables/`) for every mutation. It owns
+`pending`, routes the server's 422 field errors back onto the matching
+`UFormField`, and toasts anything not attributable to a field:
+
+```ts
+const { submit, pending, errors } = useApiForm<PostWithAuthor>('/api/posts', {
+  method: 'POST',
+  onSuccess: post => navigateTo(`/posts/${post.id}`)
+})
+```
+
+Pass a getter for the URL when it varies (`app/pages/login.vue` switches
+between sign-in and register). Bind `:error="errors.<field>"` on each
+`UFormField`. Do not hand-roll `$fetch` + `ref(false)` + try/catch — that
+loses the 422 wiring, and the duplication diverges across pages.
+
+Reads are different: use `useFetch` at setup level (see rule 4 below).
+
+### Pagination
+
+Keep the page in the URL, not in component state — `app/pages/index.vue` is
+the reference. A computed `query` passed to `useFetch` refetches on change by
+itself, so don't add a watcher, and always clamp the parsed page (a
+hand-edited `?page=0` would otherwise send a negative offset and get a 422).
 
 ---
 
@@ -143,7 +190,14 @@ These cost real debugging time. Do not "fix" them back.
 10. **Return 404, not 403, for another user's draft.** A 403 confirms the row
     exists. See `server/api/posts/[id].get.ts`.
 
-11. **`runtimeConfig` is only overridden by `NUXT_`-prefixed env vars.**
+11. **Never build an update schema with `createSchema.partial()`.** Zod's
+    `.partial()` makes fields optional but keeps `.default()`, so a PATCH of
+    `{title}` also writes `body: ''` and `published: false` — renaming a post
+    wipes its content. Define the fields once without defaults, apply defaults
+    only in the create schema (`shared/schemas/post.ts`). This shipped once and
+    passed every check in `pnpm verify`.
+
+12. **`runtimeConfig` is only overridden by `NUXT_`-prefixed env vars.**
     `runtimeConfig.databaseUrl` reads `NUXT_DATABASE_URL`, *not* `DATABASE_URL`.
     `server/utils/db.ts` reads `process.env.DATABASE_URL` first precisely so
     one name works everywhere. Without that, a container given only

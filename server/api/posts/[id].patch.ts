@@ -31,7 +31,11 @@ export default defineEventHandler(async (event): Promise<PostWithAuthor> => {
     }
   }
 
-  await db.update(tables.posts).set(input).where(eq(tables.posts.id, id))
+  // `postUpdateSchema` injects no defaults, so an empty body parses to `{}`.
+  // Drizzle throws on `.set({})`, and there is nothing to write anyway.
+  if (Object.keys(input).length > 0) {
+    await db.update(tables.posts).set(input).where(eq(tables.posts.id, id))
+  }
 
   const row = await db.query.posts.findFirst({
     where: eq(tables.posts.id, id),

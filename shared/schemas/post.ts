@@ -22,15 +22,30 @@ const slug = z
   .max(200)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Use lowercase letters, numbers and hyphens')
 
-export const postCreateSchema = z.object({
+/**
+ * Field definitions WITHOUT defaults. Defaults belong to create only.
+ *
+ * Do not build the update schema with `postCreateSchema.partial()`: Zod's
+ * `.partial()` makes fields optional but leaves `.default()` in place, so
+ * parsing `{ title }` also yields `body: ''` and `published: false`. The
+ * handler then writes those, and a PATCH that renames a post silently wipes
+ * its body and unpublishes it. Keep the two schemas built from these fields.
+ */
+const postFields = {
   title: z.string().min(1, 'Title is required').max(200),
   slug,
-  body: z.string().max(50_000).default(''),
-  published: z.boolean().default(false)
+  body: z.string().max(50_000),
+  published: z.boolean()
+}
+
+export const postCreateSchema = z.object({
+  ...postFields,
+  body: postFields.body.default(''),
+  published: postFields.published.default(false)
 })
 
-/** Every field optional — PATCH semantics. */
-export const postUpdateSchema = postCreateSchema.partial()
+/** Every field optional and NO defaults — true PATCH semantics. */
+export const postUpdateSchema = z.object(postFields).partial()
 
 /** Route params and query strings arrive as strings; coerce before validating. */
 export const postIdSchema = z.object({ id: z.uuid('Not a valid post id') })

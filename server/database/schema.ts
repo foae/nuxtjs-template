@@ -1,8 +1,16 @@
 /**
  * Drizzle schema — the single source of truth for the database.
  *
- * Everything downstream is derived from this file:
- *   this file  ->  drizzle-zod  ->  shared/schemas/*  ->  server validation + UI forms
+ * Wire contracts in `shared/schemas/` are **hand-written, not generated**.
+ * `shared/` is bundled into the browser as well as the server, so it cannot
+ * import this file at runtime, which rules out deriving schemas with
+ * drizzle-zod. The wire shape is also deliberately not the storage shape —
+ * `authorId` comes from the session, not the client.
+ *
+ * The two are kept in step by `tests/unit/schema-drift.test.ts`, which
+ * discovers every `*CreateSchema` and checks it against its table. Add a
+ * table without a contract and that suite fails until you write one or
+ * record why it doesn't need one.
  *
  * After editing, run `pnpm db:generate` to produce a migration, then
  * `pnpm db:migrate` to apply it. `pnpm verify` fails if you forget.

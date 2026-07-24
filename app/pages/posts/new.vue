@@ -24,11 +24,11 @@ const state = reactive({
 
 const toast = useToast()
 
-const { submit, pending, errors } = useApiForm('/api/posts', {
+const { submit, pending, errors } = useApiForm<PostWithAuthor>('/api/posts', {
   method: 'POST',
-  onSuccess: async (data) => {
+  onSuccess: async (post) => {
     toast.add({ title: 'Post created', color: 'success' })
-    await navigateTo(`/posts/${(data as PostWithAuthor).id}`)
+    await navigateTo(`/posts/${post.id}`)
   }
 })
 

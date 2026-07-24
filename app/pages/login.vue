@@ -14,34 +14,23 @@ const schema = computed(() => (mode.value === 'login' ? credentialsSchema : regi
 
 const state = reactive({ email: '', password: '', name: '' })
 
-const endpoint = computed(() =>
-  mode.value === 'login' ? '/api/auth/login' : '/api/auth/register'
+// The endpoint is a getter because it changes with `mode`; useApiForm
+// resolves it at submit time.
+const { submit, pending, errors } = useApiForm(
+  () => (mode.value === 'login' ? '/api/auth/login' : '/api/auth/register'),
+  {
+    method: 'POST',
+    onSuccess: async () => {
+      // Refresh the client-side session before navigating, otherwise the
+      // header still renders as signed-out on the next page.
+      await refreshSession()
+      await navigateTo((route.query.redirect as string) || '/')
+    }
+  }
 )
 
-const pending = ref(false)
-const errors = ref<Record<string, string>>({})
-const toast = useToast()
-
 async function onSubmit(event: FormSubmitEvent<Record<string, unknown>>) {
-  pending.value = true
-  errors.value = {}
-
-  try {
-    await $fetch(endpoint.value, { method: 'POST', body: event.data })
-    // Refresh the client-side session before navigating, otherwise the
-    // header still renders as signed-out on the next page.
-    await refreshSession()
-    await navigateTo((route.query.redirect as string) || '/')
-  } catch (error) {
-    const body = (error as { data?: { message?: string, data?: { errors?: Record<string, string> } } }).data
-    if (body?.data?.errors) {
-      errors.value = body.data.errors
-    } else {
-      toast.add({ title: 'Sign in failed', description: body?.message, color: 'error' })
-    }
-  } finally {
-    pending.value = false
-  }
+  await submit(event.data)
 }
 </script>
 

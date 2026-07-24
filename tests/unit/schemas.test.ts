@@ -4,7 +4,7 @@
  * everywhere.
  */
 import { credentialsSchema } from '#shared/schemas/auth'
-import { postCreateSchema, postListQuerySchema } from '#shared/schemas/post'
+import { postCreateSchema, postListQuerySchema, postUpdateSchema } from '#shared/schemas/post'
 import { describe, expect, it } from 'vitest'
 
 describe('postCreateSchema', () => {
@@ -28,6 +28,33 @@ describe('postCreateSchema', () => {
     for (const slug of ['hello', 'hello-world', 'a1-b2-c3', '2026-review']) {
       expect(postCreateSchema.safeParse({ title: 'T', slug }).success).toBe(true)
     }
+  })
+})
+
+describe('postUpdateSchema', () => {
+  /**
+   * Regression: this schema was built with `postCreateSchema.partial()`.
+   * `.partial()` does not strip `.default()`, so a PATCH of only the title
+   * also wrote `body: ''` and `published: false` — renaming a post wiped its
+   * body and unpublished it. Every check in `pnpm verify` passed.
+   */
+  it('does not inject defaults for omitted fields', () => {
+    expect(postUpdateSchema.parse({ title: 'Only the title' }))
+      .toEqual({ title: 'Only the title' })
+  })
+
+  it('parses an empty patch to an empty object', () => {
+    expect(postUpdateSchema.parse({})).toEqual({})
+  })
+
+  it('still validates the fields that are present', () => {
+    expect(postUpdateSchema.safeParse({ slug: 'Not A Slug' }).success).toBe(false)
+    expect(postUpdateSchema.safeParse({ title: '' }).success).toBe(false)
+  })
+
+  it('keeps explicit falsy values rather than dropping them', () => {
+    expect(postUpdateSchema.parse({ published: false })).toEqual({ published: false })
+    expect(postUpdateSchema.parse({ body: '' })).toEqual({ body: '' })
   })
 })
 

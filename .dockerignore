@@ -1,0 +1,33 @@
+# The Dockerfile does `COPY . .`, so everything not listed here is uploaded
+# into the build context. Without this file that includes node_modules, the
+# 1.2 MB vendored docs tree, and all of .git.
+node_modules
+.output
+.nuxt
+.nitro
+.cache
+dist
+
+.git
+.github
+
+# Vendored agent material — useful to a human or an agent, dead weight in a
+# production image.
+docs/vendor
+.claude
+
+# Tests and local state
+tests
+test-results
+playwright-report
+.logs
+coverage
+
+.env
+.env.*
+!.env.example
+
+*.log
+.DS_Store
+.idea
+.fleet

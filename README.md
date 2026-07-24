@@ -37,8 +37,12 @@ What actually matters is that mistakes get *caught mechanically*:
 - **Migration-freshness check** — editing `schema.ts` without generating a
   migration still typechecks, so it would otherwise surface at deploy time.
   `verify` generates the migration and fails, telling you to review and commit.
-- **Schema-drift test** — `shared/` contracts cannot silently diverge from the
-  Drizzle tables; renaming a column fails a test.
+- **Schema-drift test** — convention-driven, so it covers new resources for
+  free: it discovers every `*CreateSchema` and checks it against its table.
+  Renaming a column fails a test, and adding a table with no wire contract
+  fails until you write one or record why it doesn't need one.
+- **Session-shape test** — the hand-written session type augmentation is
+  checked against what `setUserSession()` actually stores.
 - **`pnpm db:reset`** — restores a deterministic database state unattended, so
   an agent can verify data-dependent work without a human in the loop.
 - **`.logs/dev-errors.jsonl`** — runtime errors as greppable JSON, so an agent

@@ -11,11 +11,14 @@
  */
 import type { FetchError } from 'ofetch'
 
-interface ApiFormOptions {
+interface ApiFormOptions<TResponse> {
   method?: 'POST' | 'PATCH' | 'PUT' | 'DELETE'
   /** Called with the parsed response when the request succeeds. */
-  onSuccess?: (data: unknown) => void | Promise<void>
+  onSuccess?: (data: TResponse) => void | Promise<void>
 }
+
+/** The URL may be a getter so a form can switch endpoints (see login.vue). */
+type UrlSource = MaybeRefOrGetter<string>
 
 /** h3 error envelope: `data` carries our field map, `message` the summary. */
 interface ApiErrorBody {
@@ -23,7 +26,16 @@ interface ApiErrorBody {
   data?: { errors?: Record<string, string> }
 }
 
-export function useApiForm(url: string, options: ApiFormOptions = {}) {
+/**
+ * `TResponse` is the shape the endpoint returns — pass it so `onSuccess` and
+ * the return value are typed, instead of every caller casting from `unknown`:
+ *
+ *   useApiForm<PostWithAuthor>('/api/posts', { onSuccess: p => ... p.id })
+ */
+export function useApiForm<TResponse = unknown>(
+  url: UrlSource,
+  options: ApiFormOptions<TResponse> = {}
+) {
   const pending = ref(false)
   const errors = ref<Record<string, string>>({})
   const toast = useToast()
@@ -33,7 +45,13 @@ export function useApiForm(url: string, options: ApiFormOptions = {}) {
     errors.value = {}
 
     try {
-      const data = await $fetch(url, { method: options.method ?? 'POST', body })
+      // Cast past $fetch's TypedInternalResponse wrapper: the URL is a
+      // runtime value, so Nitro can't infer the route's return type here.
+      const data = await $fetch(toValue(url), {
+        method: options.method ?? 'POST',
+        body
+      }) as TResponse
+
       await options.onSuccess?.(data)
       return data
     } catch (error) {

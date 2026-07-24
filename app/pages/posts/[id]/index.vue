@@ -40,12 +40,23 @@ const isAuthor = computed(() => !!user.value && post.value?.author.id === user.v
       <h1 class="text-2xl font-semibold">
         {{ post.title }}
       </h1>
-      <UBadge
-        v-if="!post.published"
-        color="neutral"
-        variant="subtle"
-        label="Draft"
-      />
+      <div class="flex items-center gap-2 shrink-0">
+        <UBadge
+          v-if="!post.published"
+          color="neutral"
+          variant="subtle"
+          label="Draft"
+        />
+        <UButton
+          v-if="isAuthor"
+          :to="`/posts/${post.id}/edit`"
+          icon="i-lucide-pencil"
+          size="sm"
+          color="neutral"
+          variant="subtle"
+          label="Edit"
+        />
+      </div>
     </div>
 
     <p class="text-sm text-muted mt-2">

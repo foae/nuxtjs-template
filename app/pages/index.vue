@@ -5,13 +5,36 @@
  * `useFetch` is the right call here: it runs during SSR, so the HTML arrives
  * populated, and the payload is reused on the client instead of refetching.
  * Use `$fetch` only inside event handlers — calling it at setup level would
- * fetch twice (once on the server, once again on hydration).
+ * fetch twice (once on the server, again on hydration).
+ *
+ * Pagination lives in the URL (`/?page=2`) rather than component state, so a
+ * page is shareable, survives reload, and renders correctly on the server.
+ * Because `query` is a computed, `useFetch` refetches whenever it changes —
+ * do not add a manual watcher.
  */
 import type { Paginated, PostWithAuthor } from '#shared/types/api'
 
-const { data, status } = await useFetch<Paginated<PostWithAuthor>>('/api/posts', {
-  query: { limit: 20 }
+const PER_PAGE = 10
+
+const route = useRoute()
+
+// Clamp: a hand-edited `?page=0` or `?page=abc` must not produce a negative
+// offset, which the API would reject with a 422.
+const page = computed(() => {
+  const raw = Number(route.query.page)
+  return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 1
 })
+
+const { data, status } = await useFetch<Paginated<PostWithAuthor>>('/api/posts', {
+  query: computed(() => ({
+    limit: PER_PAGE,
+    offset: (page.value - 1) * PER_PAGE
+  }))
+})
+
+function goToPage(next: number) {
+  return navigateTo({ query: next === 1 ? {} : { page: next } })
+}
 </script>
 
 <template>
@@ -76,9 +99,19 @@ const { data, status } = await useFetch<Paginated<PostWithAuthor>>('/api/posts',
         </div>
       </UCard>
 
-      <p class="text-sm text-muted">
-        {{ data.total }} post{{ data.total === 1 ? '' : 's' }}
-      </p>
+      <div class="flex items-center justify-between pt-2">
+        <p class="text-sm text-muted">
+          {{ data.total }} post{{ data.total === 1 ? '' : 's' }}
+        </p>
+
+        <UPagination
+          v-if="data.total > PER_PAGE"
+          :page="page"
+          :items-per-page="PER_PAGE"
+          :total="data.total"
+          @update:page="goToPage"
+        />
+      </div>
     </div>
   </UContainer>
 </template>

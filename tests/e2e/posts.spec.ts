@@ -57,6 +57,47 @@ test('server-side validation errors land on the right field', async ({ page }) =
   await expect(page.getByText('That slug is already taken')).toBeVisible()
 })
 
+test('a partial update does not wipe the fields it omits', async ({ page }) => {
+  // Regression: postUpdateSchema was `postCreateSchema.partial()`, and
+  // `.partial()` keeps `.default()`. A title-only PATCH therefore also wrote
+  // body: '' and published: false — renaming a post destroyed its content.
+  // Every check in `pnpm verify` passed while this shipped.
+  await signIn(page)
+  const id = '00000000-0000-4000-8000-000000000101' // seeded, published, has a body
+
+  const before = await (await page.request.get(`/api/posts/${id}`)).json()
+  expect(before.body).not.toBe('')
+  expect(before.published).toBe(true)
+
+  const patch = await page.request.patch(`/api/posts/${id}`, {
+    data: { title: 'Renamed by the e2e test' }
+  })
+  expect(patch.ok()).toBeTruthy()
+
+  const after = await patch.json()
+  expect(after.title).toBe('Renamed by the e2e test')
+  expect(after.body).toBe(before.body)
+  expect(after.published).toBe(true)
+})
+
+test('the author can edit a post through the UI', async ({ page }) => {
+  await signIn(page)
+  const id = '00000000-0000-4000-8000-000000000101'
+
+  await page.goto(`/posts/${id}`)
+  await page.getByRole('link', { name: 'Edit' }).click()
+
+  await expect(page.getByRole('heading', { name: 'Edit post' })).toBeVisible()
+
+  const newTitle = `Edited ${Date.now()}`
+  await page.getByLabel('Title').fill(newTitle)
+  await page.getByRole('button', { name: 'Save changes' }).click()
+
+  await expect(page.getByRole('heading', { name: newTitle })).toBeVisible()
+  // The body was never touched by the form submit, so it must survive.
+  await expect(page.getByText('The first published post.')).toBeVisible()
+})
+
 test('a draft is a 404 for anyone but its author', async ({ page }) => {
   const draftId = '00000000-0000-4000-8000-000000000102' // Grace's draft
   const response = await page.request.get(`/api/posts/${draftId}`)
