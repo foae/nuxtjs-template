@@ -15,6 +15,15 @@ import process from 'node:process'
 const LOG_PATH = resolve(process.cwd(), '.logs/dev-errors.jsonl')
 
 export default defineNitroPlugin((nitroApp) => {
+  // Nitro's `CaptureError` type declares a void return, but the runtime does
+  // `callHookParallel('error', ...)` and passes the resulting promise to
+  // `event.waitUntil()` (nitropack/dist/runtime/internal/app.mjs), so an async
+  // handler IS awaited and its rejections are caught by Nitro itself.
+  // Rewriting this as fire-and-forget to satisfy the rule would drop the
+  // waitUntil guarantee and let the request finish before the append lands —
+  // i.e. `tail .logs/dev-errors.jsonl` could miss the very error it was run
+  // for. The type is wrong, not the code.
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   nitroApp.hooks.hook('error', async (error, context) => {
     const event = context?.event
     const payload = redact({
