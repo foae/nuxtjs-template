@@ -21,3 +21,37 @@ overrides:
   '@vue/shared': 3.5.40
   '@vue/server-renderer': 3.5.40
   '@vue/compiler-sfc': 3.5.40
+
+  # Security advisories. Every one of these is a TRANSITIVE dependency — none
+  # appears in package.json — so there is nothing to bump directly and an
+  # override is the only lever. Re-check with `pnpm audit` after any lockfile
+  # change; drop an entry once the parent ships a patched range by itself,
+  # otherwise these silently pin the tree behind upstream.
+  #
+  # brace-expansion is split by major, and MUST stay split. v2 and v5 are both
+  # in the tree; minimatch@9 depends on ^2.0.2 and does
+  # `require('brace-expansion')` expecting a function, but v5 exports an object
+  # (`exports.expand`). Collapsing these two lines into a single
+  # `brace-expansion: ^5.0.8` makes `pnpm audit` report zero vulnerabilities and
+  # breaks every brace pattern in the toolchain — eslint, glob, vitest — with
+  # `(0 , brace_expansion_1.default) is not a function`.
+  #
+  # It was tried. `pnpm verify` passed 5/5 with minimatch broken, because
+  # nothing in verify evaluates a `{a,b}` pattern deeply enough to hit it. If
+  # you touch this, test it directly:
+  #   node -e "const {minimatch}=require('minimatch'); minimatch('a.vue','*.{ts,vue}')"
+  #
+  # Consequence: one `high` advisory stays open (brace-expansion <=5.0.7). 2.1.2
+  # is the final 2.x release, so there is no patched version on that line — it
+  # closes when minimatch moves to v5 upstream, not before. Don't "fix" it here.
+  '@babel/core': ^7.29.6
+  'brace-expansion@^2.0.0': ^2.1.2
+  'brace-expansion@^5.0.0': ^5.0.8
+  esbuild: '>=0.28.1'
+  js-yaml: ^4.3.0
+  launch-editor: ^2.14.1
+  postcss: ^8.5.18
+  shell-quote: ^1.10.0
+  svgo: ^4.0.2
+  tar: ^7.5.21
+  valibot: ^1.4.2
