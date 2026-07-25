@@ -46,12 +46,13 @@ fails lint with a message saying so. `eslint.config.mjs` is the one exception �
 ESLint loads flat config directly, so it cannot be TypeScript.
 
 Beyond the Nuxt preset, the rules that will actually stop you are
-`no-floating-promises` / `await-thenable` / `no-misused-promises` (type-aware,
-`app/ server/ shared/` only), plus `eqeqeq`, `prefer-template`,
-`object-shorthand` and `no-console` — log through `logger` on the server or
-`consola` in scripts, never `console`. The type-aware pass is why lint takes
-~14s rather than ~3s; it is also the only thing that catches a forgotten
-`await` on a write. See rule 14.
+`no-floating-promises` / `await-thenable` / `no-misused-promises` (type-aware:
+`app/ server/ shared/` via the project service, `scripts/ tests/` via
+`tsconfig.tools.json`), plus `eqeqeq`, `prefer-template`, `object-shorthand`
+and `no-console` — log through `logger` on the server or `consola` in
+scripts, never `console`. The type-aware pass is why lint takes ~15s rather
+than ~3s; it is also the only thing that catches a forgotten `await` on a
+write. See rule 14.
 
 ### 2. Behavioural — run the thing you changed
 
@@ -65,10 +66,16 @@ catch a wrong rule in a handler, and it checks no types *inside* a contract —
 ```bash
 cp .env.example .env      # first run only; .env is gitignored, so a fresh clone has none
 pnpm db:up && pnpm db:reset          # Postgres + deterministic seed
-pnpm dev &                           # background it — it never exits, and a
+setsid pnpm dev & DEV_PID=$!         # background it — it never exits, and a
                                      # foreground run blocks you forever
 until curl -sf -o /dev/null localhost:3000/; do sleep 1; done   # wait for boot
 ```
+
+Kill the whole process group (`kill -- -$DEV_PID`) when you are done probing —
+that is what `setsid` is for above. A bare `kill $DEV_PID` only kills the pnpm
+wrapper: the nuxt tree survives, keeps the port, and answers the *next*
+session's probes with *this* session's build while the new server exits with
+"Another Nuxt dev is already running".
 
 Poll for readiness rather than sleeping a fixed number of seconds — cold boot
 time varies with machine and cache, and a `sleep` that is long enough today is
@@ -97,11 +104,12 @@ could plausibly break:
 `scripts/seed.ts` exports `SEED_IDS` — fixed UUIDs for both users and both
 posts, so you can address seeded rows directly instead of scraping ids.
 
-When the behaviour is worth keeping, promote the probe into
-`tests/e2e/posts.spec.ts` rather than leaving it in your shell. That file
-already tests all three (`a partial update does not wipe the fields it omits`,
-`a draft is a 404 for anyone but its author`) — copy its shape. `pnpm test:e2e`
-reseeds itself, so it is repeatable.
+When the behaviour is worth keeping, promote the probe rather than leaving it
+in your shell: `tests/e2e/security.spec.ts` is the API-level home (it already
+covers all three probes above with the caller identity in each test name,
+plus unique-race 409s, strict-PATCH 422s, rate limiting and headers) and
+`tests/e2e/posts.spec.ts` covers the browser flows — copy the matching shape.
+`pnpm test:e2e` reseeds itself, so it is repeatable.
 
 Unit test (`tests/unit/`) for a pure function — mapping, a schema, a helper.
 E2E (`tests/e2e/`) for anything that crosses HTTP or touches the database.
@@ -165,7 +173,7 @@ markdown and self-contained.
 | Add a wire contract (validation) | `shared/schemas/` — imported by both sides |
 | Add a shared type | `shared/types/` — auto-imported in app *and* server |
 | Add a script | `scripts/` — run with `tsx` |
-| Unit test | `tests/unit/` — fast, no DB |
+| Unit test | `tests/unit/` — fast, no DB. Cannot resolve `h3` (transitive dep, pnpm isolation): keep testable server logic in an import-free util — see `server/utils/rate-limit-core.ts` vs `rate-limit.ts` |
 | E2E test | `tests/e2e/` — needs a running DB; builds and reseeds itself |
 
 ### Adding a resource
@@ -178,7 +186,7 @@ eight:
 |---|---|---|---|
 | 1 | table + relations | `server/database/schema.ts` | rule 8 — write `authorId`, get `author_id` |
 | 2 | migration | `pnpm db:generate`, then `db:migrate` | never hand-write the SQL |
-| 3 | wire contract | `shared/schemas/<name>.ts` | rule 11 — create *and* update, defaults on create only |
+| 3 | wire contract | `shared/schemas/<name>.ts` | rule 11 — create *and* update, defaults on create only; `z.strictObject`, so a typoed key 422s instead of silently no-oping |
 | 4 | response type | `shared/types/api.ts` | `import type` only — rule 1 |
 | 5 | row → JSON mapper | `server/utils/<name>.ts` | the ONLY place a row becomes JSON |
 | 6 | handlers, one verb at a time | `server/api/<name>/` | file = route, `.get.ts`/`.post.ts` = method |
@@ -209,7 +217,8 @@ Reach for `readBody` plus a bare `.parse()` and that wiring is silently lost.
 | invalid input | `422` | `useApiForm()` routes `data.errors` onto fields; `400` does nothing |
 | not signed in | `401` | `requireUserSession` throws this for you |
 | signed in, but not yours | `404` | never `403` — rule 10 |
-| unique-constraint clash | `409` | carry `data.errors` so the field shows it |
+| unique-constraint clash | `409` | carry `data.errors` so the field shows it — and catch it at the WRITE too (`isUniqueViolation`), the pre-check SELECT cannot stop a concurrent request |
+| too many auth attempts | `429` | login counts only failures, registration counts all — `server/utils/rate-limit.ts` |
 
 You do **not** need to write a drift test per resource.
 `tests/unit/schema-drift.test.ts` discovers every `*CreateSchema` in
@@ -297,31 +306,15 @@ where the reference slice stops being enough, so here is the shape. Take
 
 ## Searching this repo
 
-`docs/vendor/nuxt/` is 235 committed markdown files. It is deliberately
-committed (grep is the cheapest lookup you have, and it is version-pinned),
-but it **will drown your searches** if you don't scope them:
-
-| Term | hits in code | hits in docs |
-|---|---|---|
-| `useFetch` | single digits | 153 |
-| `useState` | 0 | 72 |
-| `navigateTo` | single digits | 57 |
-
-The docs column is exact because the mirror is version-pinned. The code column
-is not, and is deliberately not counted here — it moves with every commit, and
-a number nothing checks is a number that goes stale.
-
-**Default to scoping searches to source:**
+`docs/vendor/nuxt/` is 235 committed markdown files — deliberately committed
+(grep is the cheapest lookup you have, version-pinned), but it **will drown
+your searches**: `useFetch` has single-digit hits in source and 153 in the
+mirror. Default to scoping searches to source, and search the docs only when
+you actually want framework documentation:
 
 ```bash
-rg "useFetch" app server shared tests scripts
-```
-
-Search `docs/vendor/nuxt/` only when you actually want framework
-documentation, and search it on purpose:
-
-```bash
-rg "shared directory" docs/vendor/nuxt/
+rg "useFetch" app server shared tests scripts   # source, scoped
+rg "shared directory" docs/vendor/nuxt/          # docs, on purpose
 ```
 
 ---
@@ -423,7 +416,9 @@ These cost real debugging time. Do not "fix" them back.
 13. **`docs/vendor/**` and `.agents/skills/nuxt-ui/**` are generated. Editing
     them destroys your work silently.** `pnpm docs:sync` and `pnpm skills:sync`
     delete and rewrite both trees, so an edit survives exactly until the next
-    sync and fails no check in between. Every generated file says so in an HTML
+    sync — and `pnpm verify` fails on it earlier than that: both trees carry a
+    `MANIFEST.sha256` the vendored-docs check verifies. Every generated file
+    also says so in an HTML
     comment after its frontmatter — if you opened a file and saw one, that is
     this rule. To change their content, change the script that writes it
     (`scripts/docs-sync.ts`, `scripts/skills-sync.ts`); `PROJECT-OVERRIDE.md`
@@ -448,19 +443,32 @@ These cost real debugging time. Do not "fix" them back.
     generated project references do not reach. Verify a change with
     `pnpm nuxt prepare`, then read `.nuxt/tsconfig.*.json`.
 
+16. **`@types/node` tracks Node 24 — the production runtime — not your local
+    Node.** CI and the Docker image run 24 (LTS); types pinned to the oldest
+    supported major make a Node-26-only API a typecheck error instead of a
+    production crash. Don't "update" the types alone: bump them together with
+    CI, the Dockerfile, `.node-version` and `engines`.
+
 ---
 
 ## Debugging your own work
 
-Unhandled server errors in dev are appended to `.logs/dev-errors.jsonl`, one
-JSON object per line, with method, path, status, message, validation details
-and a trimmed stack. Read it instead of asking for a pasted stack trace:
+Server errors in dev are appended to `.logs/dev-errors.jsonl`, one JSON
+object per line, with method, path, status, message, validation details and a
+trimmed stack. Expected 4xx outcomes land here too (so you can debug your own
+failing probe) but only 5xx/unhandled errors are logged at error level on the
+console. Read it instead of asking for a pasted stack trace:
 
 ```bash
 tail -5 .logs/dev-errors.jsonl | jq .
 ```
 
-Secrets are redacted by `redact()` in `server/utils/logger.ts` before writing.
+Known secret shapes are redacted before writing — sensitive key names,
+connection-string credentials, bearer tokens, drizzle `params:` tails and
+Postgres `Key (x)=(...)` details (`redact()` and `scrubErrorInPlace()` in
+`server/utils/logger.ts`; the scrub runs in the error hook's synchronous
+prefix so Nitro's own raw error print is covered too). Pattern-based, NOT
+exhaustive: never log raw request bodies or credentials yourself.
 
 ---
 
@@ -468,7 +476,8 @@ Secrets are redacted by `redact()` in `server/utils/logger.ts` before writing.
 
 | Command | What it does |
 |---|---|
-| `pnpm verify` | **typecheck + lint + test + migration freshness + vendored docs pinned** |
+| `pnpm verify` | **typecheck + lint + test + migration freshness + vendored docs pinned (VERSION + content manifest)** |
+| `pnpm verify:full` | verify + production build — for changes that could affect the build/deploy path; plain `verify` never builds |
 | `pnpm dev` | dev server on `:3000` — **long-running, background it** (`pnpm dev &`) |
 | `pnpm db:up` / `db:down` | start / stop Postgres (Docker) |
 | `pnpm db:generate` | create a migration after editing the schema |
@@ -520,33 +529,21 @@ rendering mode without being asked. The stack was chosen deliberately;
 
 ### TypeScript stays on 6.x — do not "upgrade" to 7
 
-TypeScript 7 is stable (7.0.2) and this project cannot use it yet. It is the
-Go-native rewrite: `typescript/lib/tsc.js` only `execve`s a platform binary,
-and the JS compiler API is gone from the exports map — which is why
-`@typescript/typescript6` exists as a separate package. Checked on
-2026-07-25, three independent blockers, any one of them fatal:
-
-1. **`pnpm lint` dies.** `@typescript-eslint/parser` throws
-   `typescript-eslint does not support TS 7.0` — an explicit runtime guard,
-   not a peer warning. Its peer range is `>=4.8.4 <6.1.0`, and the canary
-   (8.65.1-alpha.7) has the same range.
-2. **`pnpm typecheck` dies.** `vue-tsc` fails with
-   `ERR_PACKAGE_PATH_NOT_EXPORTED` resolving `typescript/lib/tsc`. No vue-tsc
-   release supports TS 7.
-3. **Nuxt's own generated types don't survive it.** Even bare
-   `tsc -p .nuxt/tsconfig.app.json` fails with `TS2321: Excessive stack depth`
-   in the generated `$fetch` route-key inference. The server, shared and node
-   contexts pass — only the app context blows up.
-
+TS 7 is the Go-native rewrite and it breaks typescript-eslint, vue-tsc AND
+Nuxt's generated `$fetch` types — three independent blockers, any one fatal
+(checked 2026-07-25; full evidence in `docs/decisions/typescript-7.md`).
 Re-test by bumping `typescript` and running `pnpm verify`; revert unless all
-three are fixed upstream. 6.0.3 is the latest 6.x, so we are not behind.
+three pass. 6.0.3 is the latest 6.x, so we are not behind.
 
 ### What the auth deliberately is not
 
-Email + password with a sealed session cookie, and nothing else. There is **no**
-rate limiting, password reset, email verification, session revocation or
-disabled-account check. Do not assume any of them exist because a login form
-does.
+Email + password with a sealed session cookie, plus basic in-process rate
+limiting on login and registration (per-IP; login counts only failed
+attempts). That limiter is per-replica and resets on restart —
+`server/utils/rate-limit-core.ts` says what must replace it before scaling
+out. There is **no** password reset, email verification, session revocation
+or disabled-account check. Do not assume any of them exist because a login
+form does.
 
 Two consequences worth knowing before you build on it:
 

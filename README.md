@@ -74,7 +74,7 @@ server/
   api/        HTTP handlers
   database/   Drizzle schema, migrations, connection factory
   utils/      auto-imported server helpers (db, logger, validate)
-  plugins/    Nitro plugins (error logging)
+  plugins/    Nitro plugins (error logging, security headers)
 shared/       imported by BOTH app and server — schemas, types
 docs/vendor/  vendored Nuxt docs, version-pinned (pnpm docs:sync)
 .agents/      agent skills, harness-agnostic — nuxt-page is hand-written,
@@ -100,6 +100,31 @@ The container deliberately does not migrate on boot — that would race when
 more than one replica boots — so migrations run from the `migrate` target,
 which reuses the build stage's devDependencies and drizzle-kit instead of
 shipping them in the runtime image.
+
+### Security headers: what the app sets vs. what your proxy must set
+
+The app serves a conservative baseline itself (`nuxt.config.ts` route rules):
+`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+`Permissions-Policy` — and strips the `X-Powered-By` fingerprint. Two headers
+are deliberately left to the reverse proxy / ingress, because they depend on
+deployment facts a template cannot know:
+
+- **HSTS** — set it where TLS terminates, or it is a promise the app cannot
+  keep.
+- **CSP** — needs a per-project script/style inventory; a generic policy
+  either breaks the app or protects nothing.
+
+`tests/e2e/security.spec.ts` asserts the app-owned baseline, so a regression
+fails CI.
+
+### Auth scope
+
+Email + password with sealed-cookie sessions, plus basic in-process rate
+limiting on login and registration. That limiter is per-replica and resets on
+restart (`server/utils/rate-limit-core.ts` documents what to replace it with
+before scaling out), and there is no password reset, email verification or
+session revocation — `CLAUDE.md` lists the exact boundaries before you build
+on it.
 
 ## Licence
 
