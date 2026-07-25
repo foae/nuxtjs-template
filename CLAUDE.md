@@ -449,6 +449,23 @@ These cost real debugging time. Do not "fix" them back.
     production crash. Don't "update" the types alone: bump them together with
     CI, the Dockerfile, `.node-version` and `engines`.
 
+17. **CI skips prose-only changes, and "prose" is not "`.md`".** The `changes`
+    job in `.github/workflows/ci.yml` runs the full suite unless *every*
+    changed file is a `.md` (or `LICENSE`) — but `docs/vendor/**` and
+    `.agents/skills/nuxt-ui/**` are excluded from that, because they are
+    markdown that `pnpm verify` actively checks: every file in both is hashed
+    into a `MANIFEST.sha256` (rule 13). ~296 of this repo's ~300 markdown
+    files are in those two trees, so a naive `paths-ignore: '**.md'` would
+    skip CI for almost exactly the files CI exists to guard. **Add a tree to
+    `VENDORED` in `scripts/verify.ts` and you must add it to that `case` list
+    too** — otherwise CI silently stops running the check you just added. Two
+    further things not to "simplify": the filter is a *job*, not a trigger
+    `paths-ignore` (GitHub never reports a check for a path-skipped workflow,
+    so a required check waits forever and the PR cannot merge — a skipped
+    *job* reports Success instead), and the `ci` aggregate job exists because
+    a job that is skipped because its dependency *failed* also reports
+    Success. Mark `ci` as the required status check, not the individual jobs.
+
 ---
 
 ## Debugging your own work

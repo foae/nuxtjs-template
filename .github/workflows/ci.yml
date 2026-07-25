@@ -13,11 +13,96 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    # Decides whether this push/PR can affect anything CI actually tests.
+    #
+    # The filtering deliberately does NOT live in `on: paths-ignore`. GitHub
+    # never reports a check for a workflow skipped by path filtering, so a
+    # required check stays "Expected — Waiting for status to be reported" and
+    # the PR can never merge. Their own docs say not to path-filter a required
+    # workflow. A job skipped by `if:` reports Success instead, so the decision
+    # has to be a job, not a trigger.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0 # need the base commit to diff against
+          persist-credentials: false
+
+      - name: Classify the changed files
+        id: filter
+        env:
+          # On a PR, diff against the base branch tip. On a push to main,
+          # against the previous tip.
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+
+          # Fail open: anything we cannot classify with confidence runs the
+          # full suite. Running CI needlessly costs a few minutes; skipping it
+          # on a real change costs a broken main.
+          run_everything() {
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            echo "$1 — running the full suite." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          }
+
+          # All-zeros is a new branch; a rewritten history leaves a SHA that is
+          # not in this checkout.
+          if [ -z "${BASE:-}" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            run_everything 'No base commit to compare against'
+          fi
+          if ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            run_everything "Base commit $BASE is not in this checkout"
+          fi
+
+          code_changes=''
+          while IFS= read -r file; do
+            [ -n "$file" ] || continue
+            case "$file" in
+              docs/vendor/*|.agents/skills/nuxt-ui/*)
+                # Markdown, but NOT prose as far as CI is concerned. Both trees
+                # are generated and every file in them is hashed into a
+                # MANIFEST.sha256 that `pnpm verify` checks
+                # (scripts/manifest.ts), so a hand-edit here is a CI failure by
+                # design — CLAUDE.md rule 13. Must come before the *.md arm.
+                code_changes="${code_changes}${file}"$'\n' ;;
+              *.md|LICENSE)
+                ;; # prose: README, CLAUDE.md/AGENTS.md, docs/decisions, skills
+              *)
+                code_changes="${code_changes}${file}"$'\n' ;;
+            esac
+          done <<< "$(git diff --name-only "$BASE" HEAD)"
+
+          if [ -n "$code_changes" ]; then
+            echo 'code=true' >> "$GITHUB_OUTPUT"
+            {
+              echo '### CI running'
+              echo 'Files that are not prose:'
+              echo '```'
+              printf '%s' "$code_changes"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'code=false' >> "$GITHUB_OUTPUT"
+            {
+              echo '### CI skipped — prose-only change'
+              echo 'Nothing outside documentation changed, so verify/e2e/docker'
+              echo 'have nothing to test. They report Success as skipped jobs.'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   verify:
     # typecheck + lint + unit tests + migration freshness.
     # Needs no database, so it stays fast and is the gate that matters most.
     # This is the same command the agent runs locally — one definition of
     # "done", not a separate CI-only list of checks that can drift.
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -57,6 +142,8 @@ jobs:
 
   e2e:
     # The full stack against a real Postgres.
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -119,6 +206,11 @@ jobs:
     # A green CI once coexisted with `docker build .` producing the wrong
     # image (the migrate stage, not the app). CI must build what the README
     # tells people to run.
+    #
+    # Docs are excluded from the build context (.dockerignore), so a prose
+    # change cannot alter the image.
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -163,10 +255,33 @@ jobs:
             -e DATABASE_URL=postgres://app:app@localhost:5432/app \
             -e NUXT_SESSION_PASSWORD=ci-session-password-at-least-32-characters \
             app
-          for i in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             curl -sf -o /dev/null http://localhost:3000/ && exit 0
             sleep 1
           done
           echo '::error::runtime image never answered on :3000'
           docker logs app
           exit 1
+
+  ci:
+    # The one job to mark as a required status check in branch protection.
+    #
+    # Not decorative — it closes a hole the gating job opens. GitHub counts a
+    # skipped job as a *successful* required check, and when a job fails its
+    # dependents are skipped rather than failed. So if `changes` itself ever
+    # failed, verify/e2e/docker would report Success without running and a
+    # broken PR would be mergeable. `always()` plus an explicit result check is
+    # GitHub's documented remedy for exactly that.
+    if: always()
+    needs: [changes, verify, e2e, docker]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the results of every job
+        env:
+          BAD: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          if [ "$BAD" = 'true' ]; then
+            echo '::error::a CI job failed or was cancelled'
+            exit 1
+          fi
