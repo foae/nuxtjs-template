@@ -15,6 +15,13 @@
       "when": 1784923223237,
       "tag": "0001_lethal_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784963862741,
+      "tag": "0002_tidy_lady_deathstrike",
+      "breakpoints": true
     }
   ]
 }

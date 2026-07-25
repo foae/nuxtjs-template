@@ -1,0 +1,1 @@
+CREATE INDEX "posts_published_created_at_idx" ON "posts" USING btree ("published","created_at");

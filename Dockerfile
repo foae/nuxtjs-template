@@ -1,4 +1,7 @@
-# Multi-stage build for the Nitro `node-server` preset.
+# Multi-stage build for the Nitro `node-server` preset. Two artifacts:
+#
+#   docker build --target migrate -t app-migrate .
+#   docker run --rm -e DATABASE_URL=postgres://... app-migrate
 #
 #   docker build -t app .
 #   docker run -p 3000:3000 \
@@ -6,7 +9,8 @@
 #     -e NUXT_SESSION_PASSWORD=... app
 #
 # Migrations are NOT run at container start — that would race when more than
-# one replica boots. Run `pnpm db:migrate` as a separate deploy step.
+# one replica boots. Run the `migrate` target as a separate deploy step
+# before rolling out the app image.
 
 FROM node:24-alpine AS base
 ENV PNPM_HOME=/pnpm
@@ -51,3 +55,12 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", ".output/server/index.mjs"]
+
+# ---- migrate ----------------------------------------------------------------
+# Deploy-time migration artifact. The runtime image above has no node_modules
+# (it only copies .output), so it cannot run drizzle-kit. This target reuses
+# the `build` stage instead, which already has devDependencies, drizzle.config.ts
+# and server/database/migrations. Run this as a separate step before rolling
+# out the app image — never at container start (see header comment).
+FROM build AS migrate
+CMD ["./node_modules/.bin/drizzle-kit", "migrate"]

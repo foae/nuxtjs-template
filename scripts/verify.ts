@@ -8,17 +8,30 @@
  *   2. lint                 @nuxt/eslint flat config
  *   3. test                 unit tests, including the schema-drift detector
  *   4. migration freshness  schema edited but no migration committed
+ *   5. vendored docs pinned  docs/skill mirror still matches the lockfile
  *
  * Every step runs even if an earlier one fails, then results are summarised
  * at the end. That is deliberate: each invocation costs an agent a round
  * trip, so one run should surface every problem rather than only the first.
  */
 import { execSync } from 'node:child_process'
-import { readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import process from 'node:process'
 import { consola } from 'consola'
 
 const MIGRATIONS_DIR = 'server/database/migrations'
+
+/**
+ * Mirrors whose whole value is being version-exact. `docs:sync` and
+ * `skills:sync` pin to the installed package's git tag, but nothing stops a
+ * dependency bump from moving the lockfile and leaving the mirror behind —
+ * at which point the docs an agent is told to trust describe a version this
+ * project does not have.
+ */
+const VENDORED = [
+  { label: 'Nuxt docs', file: 'docs/vendor/nuxt/VERSION', pkg: 'nuxt', fix: 'pnpm docs:sync' },
+  { label: 'Nuxt UI skill', file: '.claude/skills/nuxt-ui/VERSION', pkg: '@nuxt/ui', fix: 'pnpm skills:sync' }
+]
 
 interface Result {
   name: string
@@ -47,6 +60,27 @@ function listMigrations(): string[] {
     return readdirSync(MIGRATIONS_DIR).filter(f => f.endsWith('.sql')).sort()
   } catch {
     return []
+  }
+}
+
+/**
+ * Migration files git has never seen.
+ *
+ * This is the other half of the freshness check, and it is needed because the
+ * first half is stateful: once a failed run has generated `0002_x.sql`, the
+ * schema and the migrations directory agree again — so the NEXT run generates
+ * nothing, reports green, and leaves a migration in the working tree that no
+ * deploy will ever apply. Staging the file is enough to acknowledge it;
+ * committing stays your call, not this script's.
+ */
+function untrackedMigrations(): string[] {
+  try {
+    return execSync(`git status --porcelain -- ${MIGRATIONS_DIR}`, { encoding: 'utf8' })
+      .split('\n')
+      .filter(line => line.startsWith('??'))
+      .map(line => line.slice(3).trim())
+  } catch {
+    return [] // not a git checkout — nothing to compare against
   }
 }
 
@@ -86,6 +120,62 @@ function checkMigrationsFresh(): boolean {
     return false
   }
 
+  const untracked = untrackedMigrations()
+  if (untracked.length > 0) {
+    results.push({
+      name,
+      ok: false,
+      ms: Date.now() - started,
+      hint: `Migration not in git: ${untracked.join(', ')}. Review it, then `
+        + `\`git add\` it — otherwise the next verify passes green with a `
+        + `migration no deploy will apply.`
+    })
+    return false
+  }
+
+  results.push({ name, ok: true, ms: Date.now() - started })
+  return true
+}
+
+/**
+ * The vendored mirrors claim to match the installed version. Nothing else
+ * enforces that, so a dependency bump can leave an agent reading docs for a
+ * version this project doesn't run. Cheap: two files, no network.
+ */
+function checkVendoredDocsPinned(): boolean {
+  const started = Date.now()
+  const name = 'vendored docs pinned'
+  consola.start(name)
+
+  const stale: string[] = []
+  for (const { label, file, pkg, fix } of VENDORED) {
+    let installed: string | undefined
+    try {
+      installed = (JSON.parse(
+        readFileSync(`node_modules/${pkg}/package.json`, 'utf8')
+      ) as { version?: string }).version
+    } catch {
+      continue // package not installed — nothing to compare against
+    }
+
+    let vendored: string | undefined
+    try {
+      vendored = readFileSync(file, 'utf8').trim()
+    } catch {
+      stale.push(`${label}: ${file} missing — run \`${fix}\``)
+      continue
+    }
+
+    if (vendored !== installed) {
+      stale.push(`${label}: mirrored ${vendored}, installed ${installed} — run \`${fix}\``)
+    }
+  }
+
+  if (stale.length > 0) {
+    results.push({ name, ok: false, ms: Date.now() - started, hint: stale.join('; ') })
+    return false
+  }
+
   results.push({ name, ok: true, ms: Date.now() - started })
   return true
 }
@@ -94,6 +184,7 @@ run('typecheck', 'pnpm run typecheck', 'Fix the type errors above.')
 run('lint', 'pnpm run lint', 'Run `pnpm lint:fix` to auto-fix what can be fixed.')
 run('test', 'pnpm run test', 'A failing schema-drift test means shared/schemas no longer matches the Drizzle schema.')
 checkMigrationsFresh()
+checkVendoredDocsPinned()
 
 const failed = results.filter(r => !r.ok)
 

@@ -14,22 +14,31 @@ export default defineEventHandler(async (event): Promise<PostWithAuthor> => {
   const input = await validateBody(event, postCreateSchema)
   const db = useDb()
 
+  const slugTaken = () => createError({
+    statusCode: 409,
+    statusMessage: 'Slug already in use',
+    data: { errors: { slug: 'That slug is already taken' } }
+  })
+
   const existing = await db.query.posts.findFirst({
     where: eq(tables.posts.slug, input.slug),
     columns: { id: true }
   })
-  if (existing) {
-    throw createError({
-      statusCode: 409,
-      statusMessage: 'Slug already in use',
-      data: { errors: { slug: 'That slug is already taken' } }
-    })
-  }
+  if (existing) throw slugTaken()
 
-  const [created] = await db
+  // The SELECT above cannot prevent a concurrent request from inserting the
+  // same slug between the check and this insert. If that happens, the insert
+  // itself violates posts_slug_key — catch it and throw the same 409 rather
+  // than letting it surface as an unhandled 500.
+  const created = await db
     .insert(tables.posts)
     .values({ ...input, authorId: user.id })
     .returning({ id: tables.posts.id })
+    .then(rows => rows[0])
+    .catch((error: unknown) => {
+      if (isUniqueViolation(error, 'posts_slug_key')) throw slugTaken()
+      throw error
+    })
 
   if (!created) throw createError({ statusCode: 500, statusMessage: 'Insert returned no row' })
 

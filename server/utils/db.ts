@@ -38,7 +38,13 @@ export function useDb(): Db {
 
   // One pool per process — Nitro reuses this module across requests, so a
   // per-request connection would exhaust Postgres under any real load.
-  handle = createDb(url)
+  //
+  // Pool size is tunable via DATABASE_POOL_MAX because it multiplies across
+  // replicas: 10 (the default) times N replicas can exceed Postgres's own
+  // max_connections. Falls back to createDb's default when unset/NaN/<1.
+  const parsedMax = Number(process.env.DATABASE_POOL_MAX)
+  const max = Number.isFinite(parsedMax) && parsedMax >= 1 ? parsedMax : undefined
+  handle = max === undefined ? createDb(url) : createDb(url, max)
   return handle.db
 }
 

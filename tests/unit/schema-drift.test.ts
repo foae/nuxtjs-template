@@ -15,6 +15,15 @@
  * `TABLES_WITHOUT_A_WIRE_CONTRACT` forces an explicit decision: add a table
  * with no contract and this suite fails until you either write one or record
  * why the table doesn't need one.
+ *
+ * What this actually proves, precisely — it is a name-level check, not a type
+ * check. It verifies that every contract field names a real column, that no
+ * contract exposes a server-owned column, that every required column with no
+ * default is settable, and that every `*UpdateSchema` has true PATCH
+ * semantics. It does NOT compare Zod types, nullability, lengths or
+ * refinements against the column: `published: z.string()` would pass here and
+ * fail in Postgres. Type-level agreement is not enforced anywhere — treat a
+ * green run as "the names line up", nothing more.
  */
 import { getTableColumns, is } from 'drizzle-orm'
 import { PgTable } from 'drizzle-orm/pg-core'
@@ -37,7 +46,14 @@ const TABLES_WITHOUT_A_WIRE_CONTRACT: Record<string, string> = {
   users: 'created via registerSchema in shared/schemas/auth.ts'
 }
 
-/** Columns the server always owns. A client must never be able to set these. */
+/**
+ * Columns the server always owns. A client must never be able to set these.
+ *
+ * These are the ownership and lifecycle columns. When you add a nested
+ * resource, its parent key belongs here too (`postId` on comments, and any
+ * future `tenantId`/`orgId`): a parent id taken from the request body instead
+ * of the route lets a client attach a row to somebody else's parent.
+ */
 const SERVER_OWNED = new Set(['id', 'createdAt', 'updatedAt', 'authorId', 'userId'])
 
 // Cast rather than narrow with a type predicate: each export has its own
@@ -52,23 +68,39 @@ function tableFor(resource: string): [string, PgTable] | undefined {
   return tables.find(([name]) => candidates.includes(name))
 }
 
-async function discoverContracts() {
-  const found: Array<{ resource: string, file: string, shape: z.ZodRawShape }> = []
+interface Contract {
+  resource: string
+  file: string
+  kind: 'Create' | 'Update'
+  schema: z.ZodObject
+}
+
+async function discoverContracts(): Promise<Contract[]> {
+  const found: Contract[] = []
 
   for (const file of readdirSync(SCHEMAS_DIR).filter(f => f.endsWith('.ts'))) {
     const module = await import(join(SCHEMAS_DIR, file)) as Record<string, unknown>
 
     for (const [exportName, value] of Object.entries(module)) {
-      const match = /^(.+)CreateSchema$/.exec(exportName)
+      const match = /^(.+)(Create|Update)Schema$/.exec(exportName)
       if (!match || !(value instanceof z.ZodObject)) continue
-      found.push({ resource: match[1]!, file: basename(file), shape: value.shape })
+      found.push({
+        resource: match[1]!,
+        file: basename(file),
+        kind: match[2] as 'Create' | 'Update',
+        schema: value
+      })
     }
   }
 
   return found
 }
 
-const contracts = await discoverContracts()
+const discovered = await discoverContracts()
+const contracts = discovered
+  .filter(c => c.kind === 'Create')
+  .map(({ resource, file, schema }) => ({ resource, file, shape: schema.shape }))
+const updateContracts = discovered.filter(c => c.kind === 'Update')
 
 describe('wire contracts match their tables', () => {
   it('finds at least one contract (guards against the discovery breaking)', () => {
@@ -105,6 +137,55 @@ describe('wire contracts match their tables', () => {
       }
     })
   })
+})
+
+/**
+ * The check that would have caught a bug this template already shipped once.
+ *
+ * `postUpdateSchema` was `postCreateSchema.partial()`. Zod's `.partial()` makes
+ * every field optional but KEEPS `.default()`, so `PATCH {"title":"x"}` parsed
+ * to `{ title, body: '', published: false }` — renaming a post silently wiped
+ * its body. Typecheck, lint, tests and the migration check all passed it.
+ *
+ * The invariant is cheap and holds for any PATCH contract: parsing an empty
+ * object must produce an empty object. A default on an update schema is always
+ * a bug, because it turns "caller omitted this field" into "reset this field".
+ * Written as a loop, so it covers update contracts nobody has authored yet.
+ */
+describe('update contracts have true PATCH semantics', () => {
+  it('finds at least one update contract (guards against the discovery breaking)', () => {
+    expect(updateContracts.length).toBeGreaterThan(0)
+  })
+
+  for (const { resource, file, schema } of updateContracts) {
+    it(`${resource} (${file}): parsing {} applies no defaults`, () => {
+      const result = schema.safeParse({})
+
+      expect(
+        result.success,
+        `${resource}UpdateSchema rejects an empty object, so it is not a PATCH `
+        + `contract — every field must be optional and none may have a default.`
+      ).toBe(true)
+
+      expect(
+        result.data,
+        `${resource}UpdateSchema fills in fields the caller did not send, so a `
+        + `partial update would overwrite stored data with defaults. Define the `
+        + `fields without defaults and apply defaults only in the create schema.`
+      ).toEqual({})
+    })
+
+    it(`${resource} (${file}): only names settable columns`, () => {
+      const resolved = tableFor(resource)
+      if (!resolved) return // the create-schema suite already fails on this
+
+      const columns = Object.keys(getTableColumns(resolved[1]))
+      for (const field of Object.keys(schema.shape)) {
+        expect(columns, `${resource}: update field "${field}"`).toContain(field)
+        expect(SERVER_OWNED, `${resource}: "${field}" is server-owned`).not.toContain(field)
+      }
+    })
+  }
 })
 
 describe('every table is accounted for', () => {

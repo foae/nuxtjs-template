@@ -9,8 +9,17 @@
  * only holds `<UApp>` and `<NuxtLayout>` so that `app/error.vue` — which
  * renders *instead of* the layout — doesn't inherit a broken shell.
  */
+import type { NavigationMenuItem } from '@nuxt/ui'
+
 const { loggedIn, user, clear } = useUserSession()
 const toast = useToast()
+
+// Extension point: add a page to the main menu by adding one entry here.
+// `to` is the route, `icon` is an `i-lucide-*` name. Entries can be gated
+// with `loggedIn` (e.g. `...(loggedIn.value ? [{ ... }] : [])`).
+const menu = computed<NavigationMenuItem[]>(() => [
+  { label: 'Posts', to: '/', icon: 'i-lucide-newspaper', exact: true }
+])
 
 async function logout() {
   await $fetch('/api/auth/logout', { method: 'POST' })
@@ -30,6 +39,21 @@ async function logout() {
         >
           Agent-First Template
         </NuxtLink>
+      </template>
+
+      <template #default>
+        <UNavigationMenu
+          :items="menu"
+          variant="link"
+        />
+      </template>
+
+      <template #content>
+        <UNavigationMenu
+          :items="menu"
+          orientation="vertical"
+          class="-mx-2.5"
+        />
       </template>
 
       <template #right>

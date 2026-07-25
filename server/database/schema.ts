@@ -46,7 +46,8 @@ export const posts = pgTable('posts', {
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date())
 }, t => [
   uniqueIndex('posts_slug_key').on(t.slug),
-  index('posts_author_id_idx').on(t.authorId)
+  index('posts_author_id_idx').on(t.authorId),
+  index('posts_published_created_at_idx').on(t.published, t.createdAt)
 ])
 
 export const usersRelations = relations(users, ({ many }) => ({

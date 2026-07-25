@@ -3,6 +3,19 @@ name: nuxt-ui
 description: Build UIs with @nuxt/ui v4 — 125+ accessible Vue components with Tailwind CSS theming. Use when creating interfaces, customizing themes to match a brand, building forms, or composing layouts like dashboards, docs sites, and chat interfaces.
 ---
 
+> **This project overrides one part of this skill.** It ships **no MCP server**,
+> so ignore the "MCP Server" section below and every `get_component` /
+> `search_components` instruction. Read component APIs from the installed
+> package instead — version-exact and ~1/14th the context:
+>
+> - props, slots, events → `node_modules/@nuxt/ui/dist/runtime/components/<Name>.vue.d.ts`
+> - allowed `color`/`variant`/`size` → `.nuxt/ui/<name>.ts`, first ~40 lines
+>
+> Everything else here — which component to use, how to compose it — applies as
+> written. See `PROJECT-OVERRIDE.md` and the "Nuxt UI component APIs" section
+> of `CLAUDE.md`.
+
+
 # Nuxt UI
 
 Vue component library built on [Reka UI](https://reka-ui.com/) + [Tailwind CSS](https://tailwindcss.com/) + [Tailwind Variants](https://www.tailwind-variants.org/). Works with Nuxt, Vue (Vite), Laravel (Vite + Inertia), and AdonisJS (Vite + Inertia).

@@ -59,7 +59,6 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 const deleting = ref(false)
 
 async function remove() {
-  // eslint-disable-next-line no-alert
   if (!confirm('Delete this post? This cannot be undone.')) return
 
   deleting.value = true

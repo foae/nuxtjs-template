@@ -1,10 +1,18 @@
-# CLAUDE.md
+# CLAUDE.md · AGENTS.md
 
 Server-rendered Nuxt 4 + Postgres template, built to be worked on by coding agents.
 
+`AGENTS.md` is a **symlink to this file**, so Codex, OpenCode, Cursor, Gemini
+and Copilot read exactly what Claude Code reads and the two cannot drift.
+Don't replace it with a real file: the summary that used to live there had
+already gone stale (it advertised eleven non-guessable rules when there were
+twelve, and four `verify` checks when there were five).
+
 This file is a **map, not a manual**. It tells you where things live and which
 rules are not guessable. It deliberately does not restate Nuxt documentation —
-that is vendored in `docs/vendor/nuxt/`, pinned to the installed version.
+that is vendored in `docs/vendor/nuxt/`, pinned to the installed version — and
+it hands off detailed recipes to the skills listed below rather than inlining
+them.
 
 ---
 
@@ -15,17 +23,39 @@ pnpm verify
 ```
 
 Run it before you say a task is done. It is typecheck + lint + unit tests +
-migration-freshness, needs no database, and takes ~20s. It is the same command
-CI runs — there is no separate list of checks that can drift from this one.
+migration-freshness + vendored-docs-pinned, needs no database, and takes ~20s.
+It is the same command CI runs — there is no separate list of checks that can
+drift from this one.
 
 If it fails, fix it. Do not report success with a failing verify.
 
 **Green verify does not mean correct.** It catches *mechanical* mistakes —
-type errors, style, a forgotten migration, a contract that no longer matches
-its table. It cannot catch a wrong rule in a handler. A PATCH bug that silently
-wiped post bodies passed all four checks and shipped; only reading the
-behaviour caught it. For anything touching data, exercise the actual endpoint
-(`pnpm db:reset`, then curl it or write an e2e test) before calling it done.
+type errors, style, a forgotten migration, a contract whose field names no
+longer match its table. It cannot catch a wrong rule in a handler, and it
+checks no types inside a contract: `published: z.string()` passes verify and
+fails in Postgres. A PATCH bug that silently wiped post bodies passed every
+check and shipped; only reading the behaviour caught it. For anything touching
+data, exercise the actual endpoint (`pnpm db:reset`, then curl it or write an
+e2e test) before calling it done.
+
+---
+
+## Deeper documentation, on demand
+
+This file stays a map. The detail lives in files you open only when the task
+needs them — nothing below is worth loading speculatively:
+
+| When you are… | Open |
+|---|---|
+| adding a page, route, or menu entry | `.claude/skills/nuxt-page/SKILL.md` |
+| choosing or composing UI components | `.claude/skills/nuxt-ui/SKILL.md` + `references/` |
+| after a component's exact props | `node_modules/@nuxt/ui/dist/runtime/components/<Name>.vue.d.ts` |
+| after framework behaviour (Nuxt itself) | `docs/vendor/nuxt/` — 235 files, **grep it on purpose** |
+| debugging your own server error | `.logs/dev-errors.jsonl` |
+
+Claude Code loads the skills by itself when a task matches their `description`.
+Other agents have no such mechanism: read the file directly — they are plain
+markdown and self-contained.
 
 ---
 
@@ -39,14 +69,16 @@ behaviour caught it. For anything touching data, exercise the actual endpoint
 | Add a UI component | `app/components/` — auto-imported |
 | Add a client composable | `app/composables/` — auto-imported |
 | **Submit a form to the API** | **`useApiForm()`** — never hand-roll `$fetch` + error state |
+| A mutation with no form fields (delete, logout) | `$fetch` in the event handler |
 | Add an API endpoint | `server/api/` — file = route, `.get.ts`/`.post.ts` = method |
+| Add a resource that belongs to another | read **Relations and ownership** below first |
 | Add a server helper | `server/utils/` — **auto-imported across the server** |
 | Change the database | `server/database/schema.ts`, then `pnpm db:generate` |
 | Add a wire contract (validation) | `shared/schemas/` — imported by both sides |
 | Add a shared type | `shared/types/` — auto-imported in app *and* server |
 | Add a script | `scripts/` — run with `tsx` |
 | Unit test | `tests/unit/` — fast, no DB |
-| E2E test | `tests/e2e/` — needs DB + build |
+| E2E test | `tests/e2e/` — needs a running DB; builds and reseeds itself |
 
 The vertical slice for **posts** is the reference implementation. To add a new
 resource, copy its shape end to end:
@@ -66,16 +98,21 @@ app/pages/posts/                 new.vue, [id]/index.vue, [id]/edit.vue
 
 You do **not** need to write a drift test per resource.
 `tests/unit/schema-drift.test.ts` discovers every `*CreateSchema` in
-`shared/schemas/` and checks it against the matching table by convention
-(`commentCreateSchema` → `comments`). Adding a table with no contract fails
-that suite until you write one or record the exemption in
-`TABLES_WITHOUT_A_WIRE_CONTRACT` with a reason.
+`shared/schemas/` and checks its field *names* against the matching table by
+convention (`commentCreateSchema` → `comments`): every field names a real
+column, no field is server-owned, and every required-without-default column
+is covered. It is a name-level check — it does not compare Zod types,
+nullability, or refinements against the column, so `published: z.string()`
+would still pass. Adding a table with no contract fails that suite until you
+write one or record the exemption in `TABLES_WITHOUT_A_WIRE_CONTRACT` with a
+reason.
 
 ### Forms
 
-Use `useApiForm()` (`app/composables/`) for every mutation. It owns
-`pending`, routes the server's 422 field errors back onto the matching
-`UFormField`, and toasts anything not attributable to a field:
+Use `useApiForm()` (`app/composables/`) for submitting a form with
+field-level errors. It owns `pending`, routes the server's 422 field errors
+back onto the matching `UFormField`, and toasts anything not attributable to
+a field:
 
 ```ts
 const { submit, pending, errors } = useApiForm<PostWithAuthor>('/api/posts', {
@@ -86,8 +123,13 @@ const { submit, pending, errors } = useApiForm<PostWithAuthor>('/api/posts', {
 
 Pass a getter for the URL when it varies (`app/pages/login.vue` switches
 between sign-in and register). Bind `:error="errors.<field>"` on each
-`UFormField`. Do not hand-roll `$fetch` + `ref(false)` + try/catch — that
-loses the 422 wiring, and the duplication diverges across pages.
+`UFormField`. Do not hand-roll `$fetch` + `ref(false)` + try/catch for a form
+— that loses the 422 wiring, and the duplication diverges across pages.
+
+A bare mutation with no form fields (delete, logout) has no field errors to
+route anywhere — call `$fetch` directly in the event handler instead
+(`app/pages/posts/[id]/edit.vue`'s delete button, `app/layouts/default.vue`'s
+logout).
 
 Reads are different: use `useFetch` at setup level (see rule 4 below).
 
@@ -97,6 +139,44 @@ Keep the page in the URL, not in component state — `app/pages/index.vue` is
 the reference. A computed `query` passed to `useFetch` refetches on change by
 itself, so don't add a watcher, and always clamp the parsed page (a
 hand-edited `?page=0` would otherwise send a negative offset and get a 422).
+
+### Relations and ownership
+
+`posts` is owned by exactly one user, which is the easy case. There is no
+nested resource in this template on purpose — but the first one you add is
+where the reference slice stops being enough, so here is the shape. Take
+`comments` belonging to a `post` as the example.
+
+1. **The parent id comes from the route, never the body.** Nest the route
+   (`server/api/posts/[id]/comments/index.post.ts`) and leave `postId` out of
+   `commentCreateSchema` entirely — same reasoning as `authorId` in rule 9. A
+   parent id read from the body lets a client attach a row to someone else's
+   parent. Add it to `SERVER_OWNED` in `tests/unit/schema-drift.test.ts` so the
+   drift test enforces that for you.
+
+2. **Load the parent first, with its own visibility rule.** A comment on
+   somebody else's draft must 404 exactly like the draft does (rule 10).
+   Re-derive visibility from the parent — do not assume "the row exists" means
+   "this caller may see it". Getting this wrong leaks the *existence* of
+   private parents even when the child data looks harmless.
+
+3. **There are two owners, so decide per verb.** The comment author and the
+   post author are different people with different rights: typically the
+   comment author may edit, and either may delete. Write that down in the
+   handler rather than defaulting to `row.authorId === user.id` out of habit.
+
+4. **Cascade the foreign key** (`onDelete: 'cascade'`, as `posts.authorId`
+   already does), or deleting a post silently orphans its comments.
+
+5. **Scope unique indexes to the parent.** `uniqueIndex().on(t.postId, t.slug)`,
+   not `.on(t.slug)` — a globally unique child key means one tenant's row can
+   block another's, which is a bug you find in production, not in tests.
+
+6. **The moment authorisation stops being one comparison, extract it.** One
+   helper in `server/utils/` (`assertCanEditPost(row, user)`), called from every
+   handler. Copied checks drift, and the copy that drifts is the one that
+   forgot the tenant predicate. `pnpm verify` cannot catch a missing `WHERE
+   tenant_id = ...` — nothing here can — so it has to live in one place.
 
 ---
 
@@ -139,6 +219,16 @@ is version-exact and far cheaper:
 | Props, slots, events | `node_modules/@nuxt/ui/dist/runtime/components/<Name>.vue.d.ts` | ~500 tokens |
 | Allowed `color`/`variant`/`size` | `.nuxt/ui/<name>.ts` — **first ~40 lines** | small |
 | Which component, how to compose | `.claude/skills/nuxt-ui/` | — |
+| A valid icon name | grep the installed collection (below) | small |
+
+Icons are `i-<collection>-<name>`, and only two collections are installed —
+`lucide` and `simple-icons`. A name that isn't in them renders as blank space
+with no build error, so check before you use one:
+
+```bash
+# does i-lucide-newspaper exist?
+rg -o '"newspaper[^"]*"' node_modules/@iconify-json/lucide/icons.json | head
+```
 
 The equivalent page on ui.nuxt.com is ~28 KB (~7K tokens) for one component,
 tracks latest rather than your installed version, and needs the network.
@@ -225,14 +315,15 @@ Secrets are redacted by `redact()` in `server/utils/logger.ts` before writing.
 
 | Command | What it does |
 |---|---|
-| `pnpm verify` | **typecheck + lint + test + migration freshness** |
+| `pnpm verify` | **typecheck + lint + test + migration freshness + vendored docs pinned** |
 | `pnpm dev` | dev server |
 | `pnpm db:up` / `db:down` | start / stop Postgres (Docker) |
 | `pnpm db:generate` | create a migration after editing the schema |
 | `pnpm db:migrate` | apply migrations |
 | `pnpm db:seed` | deterministic seed (fixed UUIDs, see `scripts/seed.ts`) |
-| `pnpm db:reset` | drop → migrate → seed, unattended |
-| `pnpm test` / `test:e2e` | unit tests / Playwright |
+| `pnpm db:reset` | drop → migrate → seed, unattended — **DROPs the schema**; refuses any host that isn't local |
+| `pnpm test` | unit tests (fast, no DB) |
+| `pnpm test:e2e` | Playwright — **builds first and resets the DB**, so it tests your actual change and is repeatable |
 | `pnpm docs:sync` | re-mirror Nuxt docs at the installed version |
 | `pnpm skills:sync` | re-vendor the Nuxt UI skill |
 
@@ -264,3 +355,22 @@ If you change a column that a `shared/schemas/` contract references,
 Do not add a dependency, switch the ORM/UI/auth library, or change the
 rendering mode without being asked. The stack was chosen deliberately;
 `README.md` records what and why.
+
+### What the auth deliberately is not
+
+Email + password with a sealed session cookie, and nothing else. There is **no**
+rate limiting, password reset, email verification, session revocation or
+disabled-account check. Do not assume any of them exist because a login form
+does.
+
+Two consequences worth knowing before you build on it:
+
+- The session cookie is a bearer credential valid until it expires. Deleting or
+  disabling a user does **not** log them out, and `user.name` in the session is
+  a snapshot from login, not the current row. Anything that must be current —
+  or revocable — has to be read from the database per request.
+- Authorisation is per-handler, by hand (`authorId === user.id`, see rule 9).
+  There is no policy layer. That scales to owner-scoped resources and stops
+  scaling the moment a resource is shared, nested under another user's row, or
+  scoped to an org — at which point the check belongs in one helper, not copied
+  into each handler.

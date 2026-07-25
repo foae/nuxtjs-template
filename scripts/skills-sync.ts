@@ -25,6 +25,40 @@ const OUT_DIR = resolve('.claude/skills/nuxt-ui')
 
 interface TreeEntry { path: string, type: string }
 
+/**
+ * Upstream's SKILL.md opens with "use the Nuxt UI MCP server" and even gives
+ * the `claude mcp add` command. An agent that activates this skill reads that
+ * *before* it would ever open PROJECT-OVERRIDE.md, so the correction has to sit
+ * at the top of the file the agent actually loads — not in a sibling it has no
+ * reason to open. Injected on every sync so re-vendoring cannot undo it.
+ *
+ * Inserted after the YAML frontmatter, which must stay first for the skill to
+ * be discovered at all.
+ */
+function withProjectBanner(body: string): string {
+  const banner = `
+> **This project overrides one part of this skill.** It ships **no MCP server**,
+> so ignore the "MCP Server" section below and every \`get_component\` /
+> \`search_components\` instruction. Read component APIs from the installed
+> package instead — version-exact and ~1/14th the context:
+>
+> - props, slots, events → \`node_modules/@nuxt/ui/dist/runtime/components/<Name>.vue.d.ts\`
+> - allowed \`color\`/\`variant\`/\`size\` → \`.nuxt/ui/<name>.ts\`, first ~40 lines
+>
+> Everything else here — which component to use, how to compose it — applies as
+> written. See \`PROJECT-OVERRIDE.md\` and the "Nuxt UI component APIs" section
+> of \`CLAUDE.md\`.
+`
+  const end = body.indexOf('\n---', 4)
+  if (!body.startsWith('---') || end === -1) {
+    // No frontmatter to preserve — prepend and let the sync still succeed.
+    return `${banner}\n${body}`
+  }
+
+  const cut = end + '\n---'.length
+  return `${body.slice(0, cut)}\n${banner}${body.slice(cut)}`
+}
+
 async function main() {
   // Read from disk rather than require.resolve: @nuxt/ui does not expose
   // "./package.json" in its exports map. pnpm still symlinks the package
@@ -47,19 +81,24 @@ async function main() {
 
   if (files.length === 0) throw new Error(`No files under ${SKILL_PREFIX} at ${tag}.`)
 
+  // Fetch everything BEFORE deleting anything: a network failure half way
+  // through would otherwise leave the skill directory wiped or partial, and
+  // the agent reading it has no way to tell.
+  const fetched = await Promise.all(files.map(async (path) => {
+    const res = await fetch(`https://raw.githubusercontent.com/${REPO}/${tag}/${path}`)
+    if (!res.ok) throw new Error(`Failed to fetch ${path} (HTTP ${res.status})`)
+    return { path, body: await res.text() }
+  }))
+
   await rm(OUT_DIR, { recursive: true, force: true })
 
   let bytes = 0
-  await Promise.all(files.map(async (path) => {
-    const res = await fetch(`https://raw.githubusercontent.com/${REPO}/${tag}/${path}`)
-    if (!res.ok) throw new Error(`Failed to fetch ${path} (HTTP ${res.status})`)
-
-    const body = await res.text()
+  await Promise.all(fetched.map(async ({ path, body }) => {
     bytes += Buffer.byteLength(body)
 
     const dest = join(OUT_DIR, path.slice(SKILL_PREFIX.length))
     await mkdir(dirname(dest), { recursive: true })
-    await writeFile(dest, body, 'utf8')
+    await writeFile(dest, dest.endsWith('/SKILL.md') ? withProjectBanner(body) : body, 'utf8')
   }))
 
   await writeFile(join(OUT_DIR, 'VERSION'), `${version}\n`)

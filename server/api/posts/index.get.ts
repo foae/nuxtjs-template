@@ -29,7 +29,10 @@ export default defineEventHandler(async (event): Promise<Paginated<PostWithAutho
       where,
       limit,
       offset,
-      orderBy: desc(tables.posts.createdAt),
+      // Tiebreak on id: seeds/bulk inserts share a `createdAt` timestamp, and
+      // ordering by createdAt alone leaves those rows in an unstable order
+      // across queries, which can duplicate or skip rows across pages.
+      orderBy: [desc(tables.posts.createdAt), desc(tables.posts.id)],
       with: { author: true }
     }),
     db.select({ value: count() }).from(tables.posts).where(where)

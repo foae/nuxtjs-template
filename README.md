@@ -38,9 +38,12 @@ What actually matters is that mistakes get *caught mechanically*:
   migration still typechecks, so it would otherwise surface at deploy time.
   `verify` generates the migration and fails, telling you to review and commit.
 - **Schema-drift test** — convention-driven, so it covers new resources for
-  free: it discovers every `*CreateSchema` and checks it against its table.
-  Renaming a column fails a test, and adding a table with no wire contract
-  fails until you write one or record why it doesn't need one.
+  free: it discovers every `*CreateSchema` and checks its field names against
+  its table — every field names a real column, no field is server-owned, and
+  every required-without-default column is covered. It does not compare Zod
+  types, nullability, or refinements, so it's a name-level check, not a type
+  check. Renaming a column fails a test, and adding a table with no wire
+  contract fails until you write one or record why it doesn't need one.
 - **Session-shape test** — the hand-written session type augmentation is
   checked against what `setUserSession()` actually stores.
 - **`pnpm db:reset`** — restores a deterministic database state unattended, so
@@ -73,12 +76,19 @@ tests/        unit (fast, no DB) and e2e (Playwright)
 ## Deploying
 
 ```bash
+# 1. Run migrations as a separate step, before rolling out the app image.
+docker build --target migrate -t app-migrate .
+docker run --rm -e DATABASE_URL=... app-migrate
+
+# 2. Build and run the app image.
 docker build -t app .
 docker run -p 3000:3000 -e DATABASE_URL=... -e NUXT_SESSION_PASSWORD=... app
 ```
 
-Run `pnpm db:migrate` as a separate deploy step — the container deliberately
-does not migrate on boot, which would race across replicas.
+The container deliberately does not migrate on boot — that would race when
+more than one replica boots — so migrations run from the `migrate` target,
+which reuses the build stage's devDependencies and drizzle-kit instead of
+shipping them in the runtime image.
 
 ## Licence
 
