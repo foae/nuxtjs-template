@@ -3,7 +3,7 @@
  * validates with and the forms bind to, so a rule proven here holds
  * everywhere.
  */
-import { credentialsSchema } from '#shared/schemas/auth'
+import { credentialsSchema, registerSchema } from '#shared/schemas/auth'
 import { postCreateSchema, postListQuerySchema, postUpdateSchema } from '#shared/schemas/post'
 import { describe, expect, it } from 'vitest'
 
@@ -29,6 +29,14 @@ describe('postCreateSchema', () => {
       expect(postCreateSchema.safeParse({ title: 'T', slug }).success).toBe(true)
     }
   })
+
+  it('rejects an unknown field rather than silently dropping it', () => {
+    expect(postCreateSchema.safeParse({ title: 'a', slug: 'a', extra: 1 }).success).toBe(false)
+  })
+
+  it('rejects a whitespace-only title after trimming', () => {
+    expect(postCreateSchema.safeParse({ title: '   ', slug: 'a' }).success).toBe(false)
+  })
 })
 
 describe('postUpdateSchema', () => {
@@ -43,6 +51,10 @@ describe('postUpdateSchema', () => {
       .toEqual({ title: 'Only the title' })
   })
 
+  // The schema itself still accepts `{}` — an empty-body PATCH is
+  // syntactically valid. It is server/api/posts/[id].patch.ts, not this
+  // schema, that turns an empty result into a 422: a silent 200 no-op is a
+  // false green even though no unknown-key stripping is involved.
   it('parses an empty patch to an empty object', () => {
     expect(postUpdateSchema.parse({})).toEqual({})
   })
@@ -55,6 +67,16 @@ describe('postUpdateSchema', () => {
   it('keeps explicit falsy values rather than dropping them', () => {
     expect(postUpdateSchema.parse({ published: false })).toEqual({ published: false })
     expect(postUpdateSchema.parse({ body: '' })).toEqual({ body: '' })
+  })
+
+  it('rejects an unknown field rather than silently no-oping', () => {
+    expect(postUpdateSchema.safeParse({ publish: false }).success).toBe(false)
+  })
+
+  it('accepts a single known field with only that field in the output', () => {
+    const result = postUpdateSchema.parse({ title: 'x' })
+    expect(result).toEqual({ title: 'x' })
+    expect(Object.keys(result)).toEqual(['title'])
   })
 })
 
@@ -89,5 +111,36 @@ describe('credentialsSchema', () => {
 
   it('requires a password of at least 12 characters', () => {
     expect(credentialsSchema.safeParse({ email: 'a@b.co', password: 'short' }).success).toBe(false)
+  })
+
+  it('strips an unknown field rather than rejecting it (documented asymmetry with registerSchema)', () => {
+    const result = credentialsSchema.safeParse({
+      email: 'a@b.co',
+      password: 'correct-horse-battery-staple',
+      extra: 1
+    })
+    expect(result.success).toBe(true)
+    expect(result.success && 'extra' in result.data).toBe(false)
+  })
+})
+
+describe('registerSchema', () => {
+  it('rejects an unknown field', () => {
+    const result = registerSchema.safeParse({
+      email: 'a@b.co',
+      password: 'correct-horse-battery-staple',
+      name: 'Ada',
+      extra: 1
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects a whitespace-only name after trimming', () => {
+    const result = registerSchema.safeParse({
+      email: 'a@b.co',
+      password: 'correct-horse-battery-staple',
+      name: '   '
+    })
+    expect(result.success).toBe(false)
   })
 })

@@ -14,6 +14,13 @@ const schema = computed(() => (mode.value === 'login' ? credentialsSchema : regi
 
 const state = reactive({ email: '', password: '', name: '' })
 
+const redirectTarget = computed(() => {
+  const raw = route.query.redirect
+  const value = Array.isArray(raw) ? raw[0] : raw
+  // Only same-origin paths: a full URL or protocol-relative value is ignored.
+  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//') ? value : '/'
+})
+
 // The endpoint is a getter because it changes with `mode`; useApiForm
 // resolves it at submit time.
 const { submit, pending, errors } = useApiForm(
@@ -24,7 +31,7 @@ const { submit, pending, errors } = useApiForm(
       // Refresh the client-side session before navigating, otherwise the
       // header still renders as signed-out on the next page.
       await refreshSession()
-      await navigateTo((route.query.redirect as string) || '/')
+      await navigateTo(redirectTarget.value)
     }
   }
 )
@@ -86,7 +93,7 @@ async function onSubmit(event: FormSubmitEvent<Record<string, unknown>>) {
         <UInput
           v-model="state.password"
           type="password"
-          autocomplete="current-password"
+          :autocomplete="mode === 'login' ? 'current-password' : 'new-password'"
           class="w-full"
         />
       </UFormField>

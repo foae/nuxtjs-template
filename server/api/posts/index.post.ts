@@ -44,7 +44,7 @@ export default defineEventHandler(async (event): Promise<PostWithAuthor> => {
 
   const row = await db.query.posts.findFirst({
     where: eq(tables.posts.id, created.id),
-    with: { author: true }
+    with: { author: { columns: { id: true, name: true, avatarUrl: true } } }
   })
   if (!row) throw createError({ statusCode: 500, statusMessage: 'Created post vanished' })
 

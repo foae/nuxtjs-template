@@ -15,7 +15,7 @@ export default defineEventHandler(async (event): Promise<PostWithAuthor> => {
 
   const row = await useDb().query.posts.findFirst({
     where: eq(tables.posts.id, id),
-    with: { author: true }
+    with: { author: { columns: { id: true, name: true, avatarUrl: true } } }
   })
 
   if (!row || (!row.published && row.authorId !== session.user?.id)) {

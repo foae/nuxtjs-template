@@ -1,7 +1,7 @@
 /**
  * Wire contract for posts — the single schema used by BOTH sides:
  *
- *   server/api/posts.post.ts   validates the request body with it
+ *   server/api/posts/index.post.ts   validates the request body with it
  *   app/pages/posts/new.vue    drives the UForm with it
  *
  * Because both sides import this file, a field cannot be added to the form
@@ -32,20 +32,32 @@ const slug = z
  * its body and unpublishes it. Keep the two schemas built from these fields.
  */
 const postFields = {
-  title: z.string().min(1, 'Title is required').max(200),
+  title: z.string().trim().min(1, 'Title is required').max(200),
   slug,
   body: z.string().max(50_000),
   published: z.boolean()
 }
 
-export const postCreateSchema = z.object({
+/**
+ * Body contracts use `z.strictObject` rather than `z.object`: a plain
+ * `z.object` silently strips unknown keys, so a typoed field (`publish`
+ * instead of `published`) parses to `{}` and the request "succeeds" without
+ * doing anything — a false green that is especially costly for an agent
+ * probing its own work. `z.strictObject` turns that into a 422 instead.
+ *
+ * Query and route-param schemas (`postIdSchema`, `postListQuerySchema`
+ * below) deliberately stay non-strict: query strings legitimately carry
+ * params this app doesn't read (utm_*, cache-busters), and route params are
+ * framework-controlled, not attacker-typoed body fields.
+ */
+export const postCreateSchema = z.strictObject({
   ...postFields,
   body: postFields.body.default(''),
   published: postFields.published.default(false)
 })
 
 /** Every field optional and NO defaults — true PATCH semantics. */
-export const postUpdateSchema = z.object(postFields).partial()
+export const postUpdateSchema = z.strictObject(postFields).partial()
 
 /** Route params and query strings arrive as strings; coerce before validating. */
 export const postIdSchema = z.object({ id: z.uuid('Not a valid post id') })

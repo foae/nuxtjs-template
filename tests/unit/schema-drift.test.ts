@@ -33,6 +33,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import * as schema from '../../server/database/schema'
+import type { User } from '../../server/database/schema'
 
 const SCHEMAS_DIR = fileURLToPath(new URL('../../shared/schemas', import.meta.url))
 
@@ -212,6 +213,21 @@ describe('response mapping', () => {
   it('never leaks the password hash or email of a post author', async () => {
     const { toPostWithAuthor } = await import('../../server/utils/posts')
 
+    // Deliberately a FULL user row, secrets included: the queries now project
+    // author columns away at SQL level, but the mapper must stay safe even if
+    // a future query regresses to `with: { author: true }`. Typed as `User`
+    // via a variable because the mapper's parameter is narrowed to the
+    // projection — an inline literal this wide would (correctly) fail TS
+    // excess-property checks, while a wider typed value stays assignable.
+    const fullAuthorRow: User = {
+      id: 'u1',
+      email: 'secret@example.com',
+      name: 'Name',
+      avatarUrl: null,
+      passwordHash: 'super-secret-hash',
+      createdAt: new Date(0)
+    }
+
     const mapped = toPostWithAuthor({
       id: 'p1',
       authorId: 'u1',
@@ -221,14 +237,7 @@ describe('response mapping', () => {
       published: true,
       createdAt: new Date(0),
       updatedAt: new Date(0),
-      author: {
-        id: 'u1',
-        email: 'secret@example.com',
-        name: 'Name',
-        avatarUrl: null,
-        passwordHash: 'super-secret-hash',
-        createdAt: new Date(0)
-      }
+      author: fullAuthorRow
     })
 
     const serialised = JSON.stringify(mapped)

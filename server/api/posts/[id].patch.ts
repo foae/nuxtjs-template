@@ -17,29 +17,48 @@ export default defineEventHandler(async (event): Promise<PostWithAuthor> => {
     throw createError({ statusCode: 404, statusMessage: 'Post not found' })
   }
 
+  // An empty or entirely-unknown-key PATCH is a 422, not a silent 200 no-op:
+  // `postUpdateSchema` now rejects unknown keys itself, but `{}` is still
+  // syntactically valid and would otherwise write nothing while still
+  // reporting success — a false green worth catching explicitly.
+  if (Object.keys(input).length === 0) {
+    throw createError({
+      statusCode: 422,
+      statusMessage: 'Validation failed',
+      data: { errors: { _: 'Include at least one field to update' } }
+    })
+  }
+
+  const slugTaken = () => createError({
+    statusCode: 409,
+    statusMessage: 'Slug already in use',
+    data: { errors: { slug: 'That slug is already taken' } }
+  })
+
   if (input.slug && input.slug !== existing.slug) {
     const clash = await db.query.posts.findFirst({
       where: and(eq(tables.posts.slug, input.slug), ne(tables.posts.id, id)),
       columns: { id: true }
     })
-    if (clash) {
-      throw createError({
-        statusCode: 409,
-        statusMessage: 'Slug already in use',
-        data: { errors: { slug: 'That slug is already taken' } }
-      })
-    }
+    if (clash) throw slugTaken()
   }
 
-  // `postUpdateSchema` injects no defaults, so an empty body parses to `{}`.
-  // Drizzle throws on `.set({})`, and there is nothing to write anyway.
-  if (Object.keys(input).length > 0) {
-    await db.update(tables.posts).set(input).where(eq(tables.posts.id, id))
-  }
+  // The SELECT above cannot prevent a concurrent request from claiming the
+  // same slug between the check and this update. If that happens, the
+  // update itself violates posts_slug_key — catch it and throw the same 409
+  // rather than letting it surface as an unhandled 500.
+  await db
+    .update(tables.posts)
+    .set(input)
+    .where(eq(tables.posts.id, id))
+    .catch((error: unknown) => {
+      if (isUniqueViolation(error, 'posts_slug_key')) throw slugTaken()
+      throw error
+    })
 
   const row = await db.query.posts.findFirst({
     where: eq(tables.posts.id, id),
-    with: { author: true }
+    with: { author: { columns: { id: true, name: true, avatarUrl: true } } }
   })
   if (!row) throw createError({ statusCode: 500, statusMessage: 'Updated post vanished' })
 

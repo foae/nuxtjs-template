@@ -33,7 +33,7 @@ export default defineEventHandler(async (event): Promise<Paginated<PostWithAutho
       // ordering by createdAt alone leaves those rows in an unstable order
       // across queries, which can duplicate or skip rows across pages.
       orderBy: [desc(tables.posts.createdAt), desc(tables.posts.id)],
-      with: { author: true }
+      with: { author: { columns: { id: true, name: true, avatarUrl: true } } }
     }),
     db.select({ value: count() }).from(tables.posts).where(where)
   ])
