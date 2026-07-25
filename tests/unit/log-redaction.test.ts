@@ -57,50 +57,73 @@ describe('redact', () => {
 })
 
 describe('scrubErrorInPlace', () => {
-  /** Builds the error chain drizzle actually throws: wrapper + pg cause. */
+  /**
+   * Builds the error chain drizzle actually throws: DrizzleQueryError wrapper
+   * with the postgres.js error on `cause`. The postgres.js props are defined
+   * EXACTLY the way postgres/src/connection.js `queryError` defines them —
+   * `Object.defineProperties` with only `value`, i.e. writable:false,
+   * configurable:false, enumerable:false. They cannot be masked in place;
+   * the scrub must replace the whole node on the parent's `cause` link.
+   * A plain-object fixture here would pass while production leaked — that is
+   * how the first version of the scrub shipped broken.
+   */
   function makeDbError() {
     const cause = Object.assign(new Error(`duplicate key value violates unique constraint "users_email_key"`), {
+      name: 'PostgresError',
       code: '23505',
       constraint_name: 'users_email_key',
-      detail: PG_DETAIL,
-      parameters: [EMAIL, NAME, HASH]
+      detail: PG_DETAIL
+    })
+    Object.defineProperties(cause, {
+      query: { value: 'insert into "users" ("email") values ($1)' },
+      parameters: { value: [EMAIL, NAME, HASH] },
+      args: { value: [EMAIL, NAME, HASH] },
+      types: { value: [25, 25, 25] }
     })
     const wrapper = Object.assign(new Error(DRIZZLE_MESSAGE), {
       params: [EMAIL, NAME, HASH],
       cause
-    })
+    }) as Error & { params: unknown, cause: unknown }
     return { wrapper, cause }
   }
 
-  it('removes parameter values from the error and its cause chain', () => {
-    const { wrapper, cause } = makeDbError()
+  /** Dev pretty-printers walk non-enumerable own props too — emulate that. */
+  async function printedLikeDevConsole(error: unknown): Promise<string> {
+    const { inspect } = await import('node:util')
+    return inspect(error, { depth: 8, showHidden: true })
+  }
+
+  it('removes parameter values everywhere a printer could find them', async () => {
+    const { wrapper } = makeDbError()
     scrubErrorInPlace(wrapper)
 
-    // What console.error(error) would print: message, stack, own props, cause.
-    const printed = JSON.stringify({
-      message: wrapper.message,
-      stack: wrapper.stack,
-      params: wrapper.params,
-      cause: {
-        message: cause.message,
-        stack: cause.stack,
-        detail: cause.detail,
-        parameters: cause.parameters
-      }
-    })
-
+    const printed = await printedLikeDevConsole(wrapper)
     expect(printed).not.toContain(EMAIL)
     expect(printed).not.toContain(HASH)
     expect(printed).not.toContain(NAME)
   })
 
-  it('keeps the diagnostic parts: constraint name, code, SQL shape', () => {
+  it('replaces the immutable postgres.js node instead of printing it', async () => {
     const { wrapper, cause } = makeDbError()
     scrubErrorInPlace(wrapper)
 
-    expect(cause.message).toContain('users_email_key')
-    expect(cause.code).toBe('23505')
-    expect(cause.constraint_name).toBe('users_email_key')
+    // The original postgres.js object is unfixable by design; the wrapper
+    // must now point at a sanitized replacement, not at the original.
+    expect(wrapper.cause).not.toBe(cause)
+    const printed = await printedLikeDevConsole(wrapper.cause)
+    expect(printed).not.toContain(EMAIL)
+    expect(printed).not.toContain(HASH)
+  })
+
+  it('keeps the diagnostic parts: constraint name, code, SQL shape', () => {
+    const { wrapper } = makeDbError()
+    scrubErrorInPlace(wrapper)
+
+    const replaced = wrapper.cause as { message: string, code: string, constraint_name: string, name: string }
+    expect(replaced.message).toContain('users_email_key')
+    expect(replaced.code).toBe('23505')
+    expect(replaced.constraint_name).toBe('users_email_key')
+    expect(replaced.name).toBe('PostgresError')
     expect(wrapper.message).toContain('Failed query: insert into "users"')
   })
 

@@ -7,6 +7,14 @@
  * pre-check. Without this guard that failure surfaces as an unhandled 500.
  * Catching it and checking `isUniqueViolation()` lets the handler degrade to
  * the same 409 the pre-check would have thrown.
+ *
+ * The driver error is WRAPPED: drizzle throws `DrizzleQueryError`, which
+ * carries the postgres.js error (with `code` / `constraint_name`) on
+ * `.cause`, not on itself. So this walks the cause chain. Checking only the
+ * top-level error compiles, looks right, and never matches — the catch
+ * becomes dead code and the race 500s anyway, which is exactly how the first
+ * version of this file shipped: nothing exercised the race path until
+ * tests/e2e/security.spec.ts ran two real concurrent requests.
  */
 
 interface PostgresError {
@@ -25,8 +33,16 @@ function isPostgresError(error: unknown): error is PostgresError {
   )
 }
 
+/** First error in the cause chain that looks like a postgres.js error. */
+function findPostgresError(error: unknown, depth = 0): PostgresError | undefined {
+  if (depth > 5 || error === null || typeof error !== 'object') return undefined
+  if (isPostgresError(error)) return error
+  return findPostgresError((error as { cause?: unknown }).cause, depth + 1)
+}
+
 export function isUniqueViolation(error: unknown, constraint?: string): boolean {
-  if (!isPostgresError(error) || error.code !== UNIQUE_VIOLATION) return false
+  const pg = findPostgresError(error)
+  if (!pg || pg.code !== UNIQUE_VIOLATION) return false
   if (constraint === undefined) return true
-  return error.constraint_name === constraint
+  return pg.constraint_name === constraint
 }
