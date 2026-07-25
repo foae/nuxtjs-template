@@ -30,7 +30,29 @@ export default defineNuxtConfig({
 
   nitro: {
     // Self-hosted Node + Docker. See Dockerfile.
-    preset: 'node-server'
+    preset: 'node-server',
+
+    // tsconfig.server.json — the server context is configured here, not under
+    // the top-level `typescript` key. See the comment there.
+    typescript: {
+      tsConfig: { compilerOptions: { allowJs: false } }
+    }
+  },
+
+  // TypeScript-only. Nuxt generates `allowJs: true` by default, which would let
+  // a stray .js file into app/, server/ or shared/ and be typechecked as `any`
+  // without complaint. `strict` and `noUncheckedIndexedAccess` are already on
+  // by default in Nuxt 4 — this only closes the JS door.
+  // eslint.config.mjs reports the same thing with a clearer message.
+  //
+  // There are FOUR type contexts and each needs saying separately: `tsConfig`
+  // is app only, and the server one lives under `nitro`, not here
+  // (docs/vendor/nuxt/2.directory-structure/3.tsconfig.md). Setting only
+  // `tsConfig` leaves server/ still accepting JavaScript.
+  typescript: {
+    tsConfig: { compilerOptions: { allowJs: false } },
+    sharedTsConfig: { compilerOptions: { allowJs: false } },
+    nodeTsConfig: { compilerOptions: { allowJs: false } }
   },
 
   eslint: {

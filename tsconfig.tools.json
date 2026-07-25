@@ -12,6 +12,9 @@
     "lib": ["ESNext"],
     "types": ["node"],
     "strict": true,
+    // TypeScript-only, matching the app/server/shared contexts (see
+    // nuxt.config.ts `typescript.tsConfig`). Scripts and tests are .ts too.
+    "allowJs": false,
     "noEmit": true,
     "skipLibCheck": true,
     "esModuleInterop": true,

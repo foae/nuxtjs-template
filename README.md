@@ -33,9 +33,13 @@ Agent instructions live in [`CLAUDE.md`](./CLAUDE.md); `AGENTS.md` and
 Choosing "LLM-friendly" libraries is the easy half, and the least important.
 What actually matters is that mistakes get *caught mechanically*:
 
-- **`pnpm verify`** — one command, ~20s, no database required: typecheck, lint,
+- **`pnpm verify`** — one command, ~35s, no database required: typecheck, lint,
   unit tests, a migration-freshness check, and a vendored-docs-pinned check.
   CI runs the same command.
+- **TypeScript only, and type-aware linting where it pays.** `allowJs` is off in
+  all four type contexts, so a stray `.js` cannot slip in. `no-floating-promises`
+  catches a forgotten `await` on a database write — a silent no-op that
+  `typecheck` accepts and that returns 200 having written nothing.
 - **Migration-freshness check** — editing `schema.ts` without generating a
   migration still typechecks, so it would otherwise surface at deploy time.
   `verify` generates the migration and fails, telling you to review and commit.

@@ -36,10 +36,25 @@ pnpm verify
 ```
 
 Typecheck + lint + unit tests + migration-freshness + vendored-docs-pinned.
-Needs no database, takes ~20s, and is the same command CI runs — there is no
+Needs no database, takes ~35s, and is the same command CI runs — there is no
 separate list of checks that can drift from this one.
 
 If it fails, fix it. Do not report success with a failing verify.
+`pnpm lint:fix` auto-fixes formatting and import order; it will not fix a
+logic rule for you.
+
+**This project is TypeScript only.** `allowJs` is off in all four type
+contexts, and a `.js`/`.jsx` file under `app/ server/ shared/ scripts/ tests/`
+fails lint with a message saying so. `eslint.config.mjs` is the one exception —
+ESLint loads flat config directly, so it cannot be TypeScript.
+
+Beyond the Nuxt preset, the rules that will actually stop you are
+`no-floating-promises` / `await-thenable` / `no-misused-promises` (type-aware,
+`app/ server/ shared/` only), plus `eqeqeq`, `prefer-template`,
+`object-shorthand` and `no-console` — log through `logger` on the server or
+`consola` in scripts, never `console`. The type-aware pass is why lint takes
+~14s rather than ~3s; it is also the only thing that catches a forgotten
+`await` on a write. See rule 14.
 
 ### 2. Behavioural — run the thing you changed
 
@@ -402,6 +417,25 @@ These cost real debugging time. Do not "fix" them back.
     (`scripts/docs-sync.ts`, `scripts/skills-sync.ts`); `PROJECT-OVERRIDE.md`
     and the MCP banner are both emitted from `skills-sync.ts`.
 
+14. **`no-floating-promises` needs `checkThenables: true` or it ignores every
+    database call.** Drizzle's query builders are *thenables*, not `Promise`
+    instances, and the rule skips thenables by default. Without the option it
+    reports nothing on `db.update(...)` — the exact statement it exists to
+    guard — while still looking enabled in `eslint.config.mjs`. A forgotten
+    `await` on a write is valid TypeScript that `pnpm typecheck` accepts: the
+    handler returns 200 and nothing is written. Don't drop the option to
+    "simplify" the config.
+
+15. **There are four TypeScript contexts, configured in three different
+    places.** `typescript.tsConfig` is **app only**; `sharedTsConfig` and
+    `nodeTsConfig` sit beside it; the server one is `nitro.typescript.tsConfig`.
+    Set only the first and `server/` keeps the old setting with nothing
+    reporting a problem — which is how `allowJs` stayed true for `server/`
+    here until all four were checked. `tsconfig.tools.json` is a fifth,
+    hand-written config covering `scripts/` and `tests/`, which Nuxt's
+    generated project references do not reach. Verify a change with
+    `pnpm nuxt prepare`, then read `.nuxt/tsconfig.*.json`.
+
 ---
 
 ## Debugging your own work
@@ -429,6 +463,8 @@ Secrets are redacted by `redact()` in `server/utils/logger.ts` before writing.
 | `pnpm db:migrate` | apply migrations |
 | `pnpm db:seed` | deterministic seed (fixed UUIDs, see `scripts/seed.ts`) |
 | `pnpm db:reset` | drop → migrate → seed, unattended — **DROPs the schema**; refuses any host that isn't local |
+| `pnpm lint` / `lint:fix` | ESLint; `:fix` auto-fixes formatting, not logic rules |
+| `pnpm typecheck` | all four Nuxt contexts + `tsconfig.tools.json` |
 | `pnpm test` | unit tests (fast, no DB) |
 | `pnpm test:e2e` | Playwright — **builds first and resets the DB**, so it tests your actual change and is repeatable |
 | `pnpm docs:sync` | re-mirror Nuxt docs at the installed version |
