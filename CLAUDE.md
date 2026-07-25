@@ -1,56 +1,117 @@
-# CLAUDE.md · AGENTS.md
+# CLAUDE.md · AGENTS.md · GEMINI.md
 
 Server-rendered Nuxt 4 + Postgres template, built to be worked on by coding agents.
 
-`AGENTS.md` is a **symlink to this file**, so Codex, OpenCode, Cursor, Gemini
-and Copilot read exactly what Claude Code reads and the two cannot drift.
-Don't replace it with a real file: the summary that used to live there had
-already gone stale (it advertised eleven non-guessable rules when there were
-twelve, and four `verify` checks when there were five).
+`AGENTS.md` and `GEMINI.md` are **symlinks to this file**, so every agent reads
+the same text and no copy can drift. Codex, OpenCode, Cursor and Copilot's
+coding agent read `AGENTS.md`; Gemini CLI reads `GEMINI.md` by default and
+takes `AGENTS.md` only if `context.fileName` says so — hence the second
+symlink. Don't replace either with a real file: the summary that used to live
+in `AGENTS.md` had already gone stale (it advertised eleven non-guessable rules
+when there were twelve, and four `verify` checks when there were five).
 
 This file is a **map, not a manual**. It tells you where things live and which
 rules are not guessable. It deliberately does not restate Nuxt documentation —
 that is vendored in `docs/vendor/nuxt/`, pinned to the installed version — and
-it hands off detailed recipes to the skills listed below rather than inlining
-them.
+it hands off UI recipes to the skills listed below rather than inlining them.
+
+**Everything an agent must not get wrong lives in this file, not in a skill.**
+Skills auto-load for Claude Code and for nothing else, so no rule is stored
+only in one. If you are not Claude Code, this file alone is sufficient; the
+skills are convenience, not a second source of truth.
 
 ---
 
-## The one rule
+## Done means two things
+
+A task is finished when **both** halves below pass. The first is a command.
+The second is not, and no command can stand in for it — a PATCH bug that
+silently wiped post bodies passed every mechanical check and shipped. Only
+running the endpoint caught it.
+
+### 1. Mechanical — `pnpm verify`
 
 ```bash
 pnpm verify
 ```
 
-Run it before you say a task is done. It is typecheck + lint + unit tests +
-migration-freshness + vendored-docs-pinned, needs no database, and takes ~20s.
-It is the same command CI runs — there is no separate list of checks that can
-drift from this one.
+Typecheck + lint + unit tests + migration-freshness + vendored-docs-pinned.
+Needs no database, takes ~20s, and is the same command CI runs — there is no
+separate list of checks that can drift from this one.
 
 If it fails, fix it. Do not report success with a failing verify.
 
-**Green verify does not mean correct.** It catches *mechanical* mistakes —
-type errors, style, a forgotten migration, a contract whose field names no
-longer match its table. It cannot catch a wrong rule in a handler, and it
-checks no types inside a contract: `published: z.string()` passes verify and
-fails in Postgres. A PATCH bug that silently wiped post bodies passed every
-check and shipped; only reading the behaviour caught it. For anything touching
-data, exercise the actual endpoint (`pnpm db:reset`, then curl it or write an
-e2e test) before calling it done.
+### 2. Behavioural — run the thing you changed
+
+`verify` catches *mechanical* mistakes: type errors, style, a forgotten
+migration, a contract whose field names no longer match its table. It cannot
+catch a wrong rule in a handler, and it checks no types *inside* a contract —
+`published: z.string()` passes verify and fails in Postgres.
+
+**Anything touching data needs this half.** Recipe:
+
+```bash
+cp .env.example .env      # first run only; .env is gitignored, so a fresh clone has none
+pnpm db:up && pnpm db:reset          # Postgres + deterministic seed
+pnpm dev &                           # background it — it never exits, and a
+                                     # foreground run blocks you forever
+until curl -sf -o /dev/null localhost:3000/; do sleep 1; done   # wait for boot
+```
+
+Poll for readiness rather than sleeping a fixed number of seconds — cold boot
+time varies with machine and cache, and a `sleep` that is long enough today is
+a flaky failure tomorrow.
+
+The app is on `http://localhost:3000`. Authenticate with a cookie jar — the
+session is a sealed cookie, so a bare `curl` is always anonymous:
+
+```bash
+curl -s -c /tmp/jar -X POST localhost:3000/api/auth/login \
+  -H 'content-type: application/json' \
+  -d '{"email":"ada@example.com","password":"correct-horse-battery-staple"}'
+
+curl -s -b /tmp/jar localhost:3000/api/posts          # now signed in as Ada
+```
+
+Three probes catch most of what `verify` cannot. Run the ones your change
+could plausibly break:
+
+| Probe | Expect |
+|---|---|
+| `PATCH` **one** field | every omitted field unchanged (rule 11) |
+| `GET` another user's draft | `404`, signed in *or* not (rule 10) |
+| any mutation with no cookie | `401` |
+
+`scripts/seed.ts` exports `SEED_IDS` — fixed UUIDs for both users and both
+posts, so you can address seeded rows directly instead of scraping ids.
+
+When the behaviour is worth keeping, promote the probe into
+`tests/e2e/posts.spec.ts` rather than leaving it in your shell. That file
+already tests all three (`a partial update does not wipe the fields it omits`,
+`a draft is a 404 for anyone but its author`) — copy its shape. `pnpm test:e2e`
+reseeds itself, so it is repeatable.
+
+Unit test (`tests/unit/`) for a pure function — mapping, a schema, a helper.
+E2E (`tests/e2e/`) for anything that crosses HTTP or touches the database.
 
 ---
 
-## Deeper documentation, on demand
+## Start here — route your task
 
-This file stays a map. The detail lives in files you open only when the task
-needs them — nothing below is worth loading speculatively:
+Find your task, go where it points. Rows in **bold** stay inside this file
+because getting them wrong is expensive and skills don't load for every agent;
+the rest are worth opening only when the task needs them:
 
 | When you are… | Open |
 |---|---|
 | adding a page, route, or menu entry | `.claude/skills/nuxt-page/SKILL.md` |
 | choosing or composing UI components | `.claude/skills/nuxt-ui/SKILL.md` + `references/` |
 | after a component's exact props | `node_modules/@nuxt/ui/dist/runtime/components/<Name>.vue.d.ts` |
-| after framework behaviour (Nuxt itself) | `docs/vendor/nuxt/` — 235 files, **grep it on purpose** |
+| after framework behaviour (Nuxt itself) | `docs/vendor/nuxt/` — 235 markdown files, **grep it on purpose** |
+| **adding an API endpoint or a resource** | **Adding a resource** below — stays in this file |
+| **adding a resource owned by another** | **Relations and ownership** below — read it *first* |
+| **changing the database** | **Changing the database** below |
+| **checking your work actually behaves** | **Done means two things**, half 2, above |
 | debugging your own server error | `.logs/dev-errors.jsonl` |
 
 Claude Code loads the skills by itself when a task matches their `description`.
@@ -80,21 +141,48 @@ markdown and self-contained.
 | Unit test | `tests/unit/` — fast, no DB |
 | E2E test | `tests/e2e/` — needs a running DB; builds and reseeds itself |
 
-The vertical slice for **posts** is the reference implementation. To add a new
-resource, copy its shape end to end:
+### Adding a resource
 
-```
-server/database/schema.ts        table + relations
-shared/schemas/post.ts           zod contracts — create AND update (see below)
-shared/types/api.ts              response types (type-only import from schema)
-server/utils/posts.ts            row -> API mapping (the ONLY place it becomes JSON)
-server/api/posts/index.get.ts    list (visibility rules)
-server/api/posts/index.post.ts   create (owner from session)
-server/api/posts/[id].get.ts     read
-server/api/posts/[id].patch.ts   update
-server/api/posts/[id].delete.ts  delete
-app/pages/posts/                 new.vue, [id]/index.vue, [id]/edit.vue
-```
+The **posts** slice is the reference implementation. Build in this order, and
+run `pnpm verify` after each step — a failure then names one file instead of
+eight:
+
+| # | Step | Where | Watch for |
+|---|---|---|---|
+| 1 | table + relations | `server/database/schema.ts` | rule 8 — write `authorId`, get `author_id` |
+| 2 | migration | `pnpm db:generate`, then `db:migrate` | never hand-write the SQL |
+| 3 | wire contract | `shared/schemas/<name>.ts` | rule 11 — create *and* update, defaults on create only |
+| 4 | response type | `shared/types/api.ts` | `import type` only — rule 1 |
+| 5 | row → JSON mapper | `server/utils/<name>.ts` | the ONLY place a row becomes JSON |
+| 6 | handlers, one verb at a time | `server/api/<name>/` | file = route, `.get.ts`/`.post.ts` = method |
+| 7 | pages | `app/pages/<name>/` | forms use `useApiForm()` — see below |
+| 8 | behaviour | half 2 of **Done means two things** | the step `verify` cannot do for you |
+
+**Copy the shape, not the fields.** Generic to every resource: the handler
+skeleton, `requireUserSession`, the `validate*` helpers, the mapper, the status
+codes, 404-not-403. Specific to *posts* and probably wrong for yours: `slug`
+and its regex, the `published` draft-visibility rule, `title`/`body`. A
+`comments` resource has neither a slug nor a draft state — don't carry them
+over just because they were in the file you copied.
+
+Not every resource needs all eight rows. A read-only endpoint is steps 1–6
+with a single `.get.ts` and no pages. Don't create empty stubs for verbs
+nothing calls.
+
+**Validation is not hand-rolled.** `server/utils/validate.ts` is auto-imported
+across the server and gives you `validateBody`, `validateParams` and
+`validateQuery`. They throw a 422 whose `data.errors` is keyed by field name —
+exactly what `useApiForm()` reads to put each message under the right input.
+Reach for `readBody` plus a bare `.parse()` and that wiring is silently lost.
+
+**Status codes are a contract, not a preference.** The client depends on them:
+
+| Situation | Code | Why |
+|---|---|---|
+| invalid input | `422` | `useApiForm()` routes `data.errors` onto fields; `400` does nothing |
+| not signed in | `401` | `requireUserSession` throws this for you |
+| signed in, but not yours | `404` | never `403` — rule 10 |
+| unique-constraint clash | `409` | carry `data.errors` so the field shows it |
 
 You do **not** need to write a drift test per resource.
 `tests/unit/schema-drift.test.ts` discovers every `*CreateSchema` in
@@ -188,9 +276,13 @@ but it **will drown your searches** if you don't scope them:
 
 | Term | hits in code | hits in docs |
 |---|---|---|
-| `useFetch` | 4 | 153 |
+| `useFetch` | single digits | 153 |
 | `useState` | 0 | 72 |
-| `navigateTo` | 4 | 57 |
+| `navigateTo` | single digits | 57 |
+
+The docs column is exact because the mirror is version-pinned. The code column
+is not, and is deliberately not counted here — it moves with every commit, and
+a number nothing checks is a number that goes stale.
 
 **Default to scoping searches to source:**
 
@@ -235,6 +327,12 @@ tracks latest rather than your installed version, and needs the network.
 
 `.nuxt/` is generated — run `pnpm nuxt prepare` if missing. It also reflects
 this project's `app/app.config.ts` theme overrides, which published docs cannot.
+
+This table is the one copy of it that is **not** generated — the others live in
+`.claude/skills/nuxt-ui/PROJECT-OVERRIDE.md` and in the banner `skills:sync`
+injects, both of which carry the installed version. If a major `@nuxt/ui`
+upgrade moves those paths, this table is what silently goes stale; check it
+against `PROJECT-OVERRIDE.md` after any such bump.
 
 ---
 
@@ -295,6 +393,15 @@ These cost real debugging time. Do not "fix" them back.
     back to localhost — ECONNREFUSED inside the container while the database
     is plainly reachable. Any new runtime secret needs the same care.
 
+13. **`docs/vendor/**` and `.claude/skills/nuxt-ui/**` are generated. Editing
+    them destroys your work silently.** `pnpm docs:sync` and `pnpm skills:sync`
+    delete and rewrite both trees, so an edit survives exactly until the next
+    sync and fails no check in between. Every generated file says so in an HTML
+    comment after its frontmatter — if you opened a file and saw one, that is
+    this rule. To change their content, change the script that writes it
+    (`scripts/docs-sync.ts`, `scripts/skills-sync.ts`); `PROJECT-OVERRIDE.md`
+    and the MCP banner are both emitted from `skills-sync.ts`.
+
 ---
 
 ## Debugging your own work
@@ -316,7 +423,7 @@ Secrets are redacted by `redact()` in `server/utils/logger.ts` before writing.
 | Command | What it does |
 |---|---|
 | `pnpm verify` | **typecheck + lint + test + migration freshness + vendored docs pinned** |
-| `pnpm dev` | dev server |
+| `pnpm dev` | dev server on `:3000` — **long-running, background it** (`pnpm dev &`) |
 | `pnpm db:up` / `db:down` | start / stop Postgres (Docker) |
 | `pnpm db:generate` | create a migration after editing the schema |
 | `pnpm db:migrate` | apply migrations |
@@ -327,8 +434,15 @@ Secrets are redacted by `redact()` in `server/utils/logger.ts` before writing.
 | `pnpm docs:sync` | re-mirror Nuxt docs at the installed version |
 | `pnpm skills:sync` | re-vendor the Nuxt UI skill |
 
+Everything except `verify` and `test` needs a `.env` — it is gitignored, so a
+fresh clone has none. `cp .env.example .env` once; `DATABASE_URL` and a 32-char
+`NUXT_SESSION_PASSWORD` are the two that matter. `verify` passing on a machine
+with no `.env` is expected, not proof the database commands will work.
+
 Seeded logins: `ada@example.com` / `grace@example.com`, password
-`correct-horse-battery-staple`.
+`correct-horse-battery-staple`. `scripts/seed.ts` exports `SEED_IDS` with the
+fixed UUIDs for both users and both posts (one published, one draft) — address
+seeded rows through it instead of scraping ids out of a list response.
 
 ---
 

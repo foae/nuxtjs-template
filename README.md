@@ -13,7 +13,8 @@ pnpm dev
 Seeded logins: `ada@example.com` / `grace@example.com`, password
 `correct-horse-battery-staple`.
 
-Agent instructions live in [`CLAUDE.md`](./CLAUDE.md).
+Agent instructions live in [`CLAUDE.md`](./CLAUDE.md); `AGENTS.md` and
+`GEMINI.md` are symlinks to it, so every agent reads the same text.
 
 ## Stack
 
@@ -33,7 +34,8 @@ Choosing "LLM-friendly" libraries is the easy half, and the least important.
 What actually matters is that mistakes get *caught mechanically*:
 
 - **`pnpm verify`** — one command, ~20s, no database required: typecheck, lint,
-  unit tests, and a migration-freshness check. CI runs the same command.
+  unit tests, a migration-freshness check, and a vendored-docs-pinned check.
+  CI runs the same command.
 - **Migration-freshness check** — editing `schema.ts` without generating a
   migration still typechecks, so it would otherwise surface at deploy time.
   `verify` generates the migration and fails, telling you to review and commit.
@@ -68,7 +70,8 @@ server/
   plugins/    Nitro plugins (error logging)
 shared/       imported by BOTH app and server — schemas, types
 docs/vendor/  vendored Nuxt docs, version-pinned (pnpm docs:sync)
-.claude/      vendored agent skills (pnpm skills:sync)
+.claude/      agent skills — nuxt-page is hand-written, nuxt-ui is vendored
+              (pnpm skills:sync). Generated files say so in their own header.
 scripts/      seed, reset, verify, sync
 tests/        unit (fast, no DB) and e2e (Playwright)
 ```

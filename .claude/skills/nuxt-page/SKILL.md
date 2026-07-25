@@ -68,9 +68,9 @@ const { data, status, error } = await useFetch('/api/reports')
   pagination reference, and always clamp a parsed page number.
 - Submitting a form? `useApiForm()`, never hand-rolled `$fetch` + `ref(false)`
   — see the Forms section of `CLAUDE.md`.
-- Needs a new endpoint? That is a different job: copy the `posts` slice listed
-  in `CLAUDE.md`, and read **Relations and ownership** first if the resource
-  belongs to another one.
+- Needs a new endpoint? That is a different job: follow **Adding a resource**
+  in `CLAUDE.md` (an ordered 8-step build), and read **Relations and
+  ownership** first if the resource belongs to another one.
 - **Never** prerender a page whose data comes from Postgres — build time has no
   database. Use `swr`/`isr` route rules if you want caching.
 
@@ -101,10 +101,19 @@ useSeoMeta({ title: 'Reports', description: '…' })
 
 ```bash
 pnpm verify                      # typecheck + lint + tests + migrations + docs pin
-pnpm dev                         # then actually open the page
+pnpm db:up && pnpm db:reset      # needs .env — `cp .env.example .env` once
+pnpm dev &                       # background it: it never exits
+until curl -sf -o /dev/null localhost:3000/; do sleep 1; done   # wait for boot
+
+# The page really renders — and server-side, not only after hydration.
+curl -s localhost:3000/reports | grep -q '<h1' && echo ok
 tail -5 .logs/dev-errors.jsonl | jq .    # your own server errors, greppable
 ```
 
 `verify` cannot tell you the page renders, that the nav entry points at the
 right route, or that the data is correct — it catches mechanical mistakes only.
-Look at the page before calling the task done.
+Fetching the URL is the cheapest proof; if the markup is missing from the raw
+HTML but appears in a browser, your data moved to client-only fetching (step 4).
+
+For a page that changes data, that is not enough — follow half 2 of **Done
+means two things** in `CLAUDE.md` and exercise the endpoint behind it.

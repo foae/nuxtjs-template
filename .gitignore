@@ -29,3 +29,6 @@ logs
 # Playwright
 test-results
 playwright-report
+
+# Claude Code machine-local settings (never committed; .claude/ ships skills only)
+.claude/settings.local.json
