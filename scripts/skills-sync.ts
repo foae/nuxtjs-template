@@ -1,5 +1,5 @@
 /**
- * Vendors the first-party Nuxt UI agent skill into `.claude/skills/nuxt-ui/`,
+ * Vendors the first-party Nuxt UI agent skill into `.agents/skills/nuxt-ui/`,
  * pinned to the @nuxt/ui version this project has installed.
  *
  *   pnpm skills:sync
@@ -9,7 +9,7 @@
  * it deliberately does not list props.
  *
  * Note: upstream's SKILL.md tells the agent to use the Nuxt UI MCP server for
- * props/slots. This template intentionally ships no MCP, so `.claude/skills/
+ * props/slots. This template intentionally ships no MCP, so `.agents/skills/
  * nuxt-ui/PROJECT-OVERRIDE.md` redirects those lookups to node_modules and
  * .nuxt/ui, which are version-exact and cost far less context. CLAUDE.md
  * documents that route.
@@ -21,7 +21,16 @@ import { consola } from 'consola'
 
 const REPO = 'nuxt/ui'
 const SKILL_PREFIX = 'skills/nuxt-ui/'
-const OUT_DIR = resolve('.claude/skills/nuxt-ui')
+
+/**
+ * Skills live in `.agents/skills/` — the vendor-neutral Agent Skills location
+ * (agentskills.io), NOT `.claude/skills/`. pi and OpenCode discover
+ * `.agents/skills/` natively; Claude Code only looks in `.claude/skills/`, so
+ * that path is a symlink to this one. Write through the real directory: a sync
+ * that targeted the symlink would still work, but the repo would no longer say
+ * which location is canonical.
+ */
+const OUT_DIR = resolve('.agents/skills/nuxt-ui')
 
 interface TreeEntry { path: string, type: string }
 
@@ -154,7 +163,7 @@ published docs cannot know about.
 `)
 
   consola.success(
-    `Vendored ${files.length} skill files (${(bytes / 1024).toFixed(0)} KB) for @nuxt/ui ${version} -> .claude/skills/nuxt-ui/`
+    `Vendored ${files.length} skill files (${(bytes / 1024).toFixed(0)} KB) for @nuxt/ui ${version} -> .agents/skills/nuxt-ui/`
   )
 }
 

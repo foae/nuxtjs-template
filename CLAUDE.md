@@ -1,14 +1,12 @@
-# CLAUDE.md · AGENTS.md · GEMINI.md
+# CLAUDE.md · AGENTS.md
 
 Server-rendered Nuxt 4 + Postgres template, built to be worked on by coding agents.
 
-`AGENTS.md` and `GEMINI.md` are **symlinks to this file**, so every agent reads
-the same text and no copy can drift. Codex, OpenCode, Cursor and Copilot's
-coding agent read `AGENTS.md`; Gemini CLI reads `GEMINI.md` by default and
-takes `AGENTS.md` only if `context.fileName` says so — hence the second
-symlink. Don't replace either with a real file: the summary that used to live
-in `AGENTS.md` had already gone stale (it advertised eleven non-guessable rules
-when there were twelve, and four `verify` checks when there were five).
+`AGENTS.md` is a **symlink to this file**, so Claude Code, pi, OpenCode, Codex
+and Cursor all read the same text and no copy can drift. Don't replace it with
+a real file: the summary that used to live there had already gone stale (it
+advertised eleven non-guessable rules when there were twelve, and four `verify`
+checks when there were five).
 
 This file is a **map, not a manual**. It tells you where things live and which
 rules are not guessable. It deliberately does not restate Nuxt documentation —
@@ -16,9 +14,8 @@ that is vendored in `docs/vendor/nuxt/`, pinned to the installed version — and
 it hands off UI recipes to the skills listed below rather than inlining them.
 
 **Everything an agent must not get wrong lives in this file, not in a skill.**
-Skills auto-load for Claude Code and for nothing else, so no rule is stored
-only in one. If you are not Claude Code, this file alone is sufficient; the
-skills are convenience, not a second source of truth.
+Skills are convenience, not a second source of truth: no rule is stored only in
+one, so this file alone is sufficient whatever harness you are.
 
 ---
 
@@ -119,8 +116,8 @@ the rest are worth opening only when the task needs them:
 
 | When you are… | Open |
 |---|---|
-| adding a page, route, or menu entry | `.claude/skills/nuxt-page/SKILL.md` |
-| choosing or composing UI components | `.claude/skills/nuxt-ui/SKILL.md` + `references/` |
+| adding a page, route, or menu entry | `.agents/skills/nuxt-page/SKILL.md` |
+| choosing or composing UI components | `.agents/skills/nuxt-ui/SKILL.md` + `references/` |
 | after a component's exact props | `node_modules/@nuxt/ui/dist/runtime/components/<Name>.vue.d.ts` |
 | after framework behaviour (Nuxt itself) | `docs/vendor/nuxt/` — 235 markdown files, **grep it on purpose** |
 | **adding an API endpoint or a resource** | **Adding a resource** below — stays in this file |
@@ -129,8 +126,23 @@ the rest are worth opening only when the task needs them:
 | **checking your work actually behaves** | **Done means two things**, half 2, above |
 | debugging your own server error | `.logs/dev-errors.jsonl` |
 
-Claude Code loads the skills by itself when a task matches their `description`.
-Other agents have no such mechanism: read the file directly — they are plain
+Skills live in **`.agents/skills/`** — the vendor-neutral
+[Agent Skills](https://agentskills.io) location, not a Claude Code one. All
+three harnesses auto-load them when a task matches the `description` in each
+`SKILL.md`'s frontmatter:
+
+| Harness | Discovers | Notes |
+|---|---|---|
+| **pi** | `.agents/skills/` natively | prompts once to trust project-local files; `--no-skills` opts out |
+| **OpenCode** | `.agents/skills/` natively | also reads `.claude/skills/` and `.opencode/skills/` |
+| **Claude Code** | `.claude/skills/` only | that path is a **symlink** to `../.agents/skills` |
+
+`.claude/skills` is a symlink for the same reason `AGENTS.md` is: one copy,
+every harness, nothing to drift. Claude Code has no `.agents/skills` support
+(checked against 2.1.220), so the symlink is what makes it work — don't replace
+it with a copy, and don't move the real files under `.claude/`.
+
+Any agent that auto-loads none of this can just read the files: they are plain
 markdown and self-contained.
 
 ---
@@ -316,7 +328,7 @@ rg "shared directory" docs/vendor/nuxt/
 
 ## Nuxt UI component APIs — read these, not the website
 
-The vendored skill (`.claude/skills/nuxt-ui/`) teaches *which* component to
+The vendored skill (`.agents/skills/nuxt-ui/`) teaches *which* component to
 use. For *what a component accepts*, upstream tells you to use the Nuxt UI MCP
 server. **This project ships no MCP.** Use the installed package instead — it
 is version-exact and far cheaper:
@@ -325,7 +337,7 @@ is version-exact and far cheaper:
 |---|---|---|
 | Props, slots, events | `node_modules/@nuxt/ui/dist/runtime/components/<Name>.vue.d.ts` | ~500 tokens |
 | Allowed `color`/`variant`/`size` | `.nuxt/ui/<name>.ts` — **first ~40 lines** | small |
-| Which component, how to compose | `.claude/skills/nuxt-ui/` | — |
+| Which component, how to compose | `.agents/skills/nuxt-ui/` | — |
 | A valid icon name | grep the installed collection (below) | small |
 
 Icons are `i-<collection>-<name>`, and only two collections are installed —
@@ -344,7 +356,7 @@ tracks latest rather than your installed version, and needs the network.
 this project's `app/app.config.ts` theme overrides, which published docs cannot.
 
 This table is the one copy of it that is **not** generated — the others live in
-`.claude/skills/nuxt-ui/PROJECT-OVERRIDE.md` and in the banner `skills:sync`
+`.agents/skills/nuxt-ui/PROJECT-OVERRIDE.md` and in the banner `skills:sync`
 injects, both of which carry the installed version. If a major `@nuxt/ui`
 upgrade moves those paths, this table is what silently goes stale; check it
 against `PROJECT-OVERRIDE.md` after any such bump.
@@ -408,7 +420,7 @@ These cost real debugging time. Do not "fix" them back.
     back to localhost — ECONNREFUSED inside the container while the database
     is plainly reachable. Any new runtime secret needs the same care.
 
-13. **`docs/vendor/**` and `.claude/skills/nuxt-ui/**` are generated. Editing
+13. **`docs/vendor/**` and `.agents/skills/nuxt-ui/**` are generated. Editing
     them destroys your work silently.** `pnpm docs:sync` and `pnpm skills:sync`
     delete and rewrite both trees, so an edit survives exactly until the next
     sync and fails no check in between. Every generated file says so in an HTML

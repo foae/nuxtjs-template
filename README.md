@@ -13,8 +13,7 @@ pnpm dev
 Seeded logins: `ada@example.com` / `grace@example.com`, password
 `correct-horse-battery-staple`.
 
-Agent instructions live in [`CLAUDE.md`](./CLAUDE.md); `AGENTS.md` and
-`GEMINI.md` are symlinks to it, so every agent reads the same text.
+Agent instructions live in [`CLAUDE.md`](./CLAUDE.md).
 
 ## Stack
 
@@ -62,6 +61,10 @@ What actually matters is that mistakes get *caught mechanically*:
 - **No MCP servers.** Component APIs are read from `node_modules` (~500 tokens
   per component, version-exact) rather than a docs page (~7K tokens, tracks
   latest). Nothing sits resident in context every session.
+- **Harness-agnostic, not Claude-specific.** Skills live in `.agents/skills/` —
+  the vendor-neutral [Agent Skills](https://agentskills.io) location that pi and
+  OpenCode load natively — with `.claude/skills` symlinked there for Claude
+  Code. One copy, three harnesses, nothing to drift.
 
 ## Layout
 
@@ -74,8 +77,9 @@ server/
   plugins/    Nitro plugins (error logging)
 shared/       imported by BOTH app and server — schemas, types
 docs/vendor/  vendored Nuxt docs, version-pinned (pnpm docs:sync)
-.claude/      agent skills — nuxt-page is hand-written, nuxt-ui is vendored
-              (pnpm skills:sync). Generated files say so in their own header.
+.agents/      agent skills, harness-agnostic — nuxt-page is hand-written,
+  skills/     nuxt-ui is vendored (pnpm skills:sync). Generated files say so
+              in their own header. .claude/skills symlinks here.
 scripts/      seed, reset, verify, sync
 tests/        unit (fast, no DB) and e2e (Playwright)
 ```

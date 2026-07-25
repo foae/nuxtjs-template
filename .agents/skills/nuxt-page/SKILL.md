@@ -76,7 +76,7 @@ const { data, status, error } = await useFetch('/api/reports')
 
 ## 5. Compose the UI
 
-1. *Which* component → `.claude/skills/nuxt-ui/` (`SKILL.md` + `references/`).
+1. *Which* component → `.agents/skills/nuxt-ui/` (`SKILL.md` + `references/`).
 2. *What it accepts* → `node_modules/@nuxt/ui/dist/runtime/components/<Name>.vue.d.ts`
    (~500 tokens, version-exact).
 3. *Allowed `color`/`variant`/`size`* → `.nuxt/ui/<name>.ts`, first ~40 lines.
@@ -84,7 +84,7 @@ const { data, status, error } = await useFetch('/api/reports')
    cannot know.
 
 Ignore the MCP instructions in the vendored `SKILL.md` — this project ships no
-MCP server on purpose. `.claude/skills/nuxt-ui/PROJECT-OVERRIDE.md` says the
+MCP server on purpose. `.agents/skills/nuxt-ui/PROJECT-OVERRIDE.md` says the
 same. `.nuxt/` is generated: run `pnpm nuxt prepare` if it is missing.
 
 Handle the three states a fetched page has: `status === 'pending'`
