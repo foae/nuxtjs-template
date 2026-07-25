@@ -15,6 +15,11 @@ dist
 # production image.
 docs/vendor
 .claude
+.agents
+AGENTS.md
+CLAUDE.md
+PROJECT_REVIEW.md
+README.md
 
 # Tests and local state
 tests

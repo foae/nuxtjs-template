@@ -36,7 +36,18 @@ COPY . .
 # with --ignore-scripts), and try to purge it — which fails without a TTY.
 RUN ./node_modules/.bin/nuxt prepare && ./node_modules/.bin/nuxt build
 
+# ---- migrate ----------------------------------------------------------------
+# Deploy-time migration artifact. The runtime stage below has no node_modules
+# (it only copies .output), so it cannot run drizzle-kit. This target reuses
+# the `build` stage instead, which already has devDependencies, drizzle.config.ts
+# and server/database/migrations. Run this as a separate step before rolling
+# out the app image — never at container start (see header comment).
+FROM build AS migrate
+CMD ["./node_modules/.bin/drizzle-kit", "migrate"]
+
 # ---- runtime --------------------------------------------------------------
+# Last stage, and therefore the default target of `docker build -t app .`
+# with no --target flag — that command must build the app, not the migrator.
 FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
@@ -55,12 +66,3 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", ".output/server/index.mjs"]
-
-# ---- migrate ----------------------------------------------------------------
-# Deploy-time migration artifact. The runtime image above has no node_modules
-# (it only copies .output), so it cannot run drizzle-kit. This target reuses
-# the `build` stage instead, which already has devDependencies, drizzle.config.ts
-# and server/database/migrations. Run this as a separate step before rolling
-# out the app image — never at container start (see header comment).
-FROM build AS migrate
-CMD ["./node_modules/.bin/drizzle-kit", "migrate"]

@@ -12,7 +12,10 @@ services:
       POSTGRES_INITDB_ARGS: '--locale=C --encoding=UTF8'
     ports:
       # Override with POSTGRES_PORT if 5432 is already taken on your machine.
-      - '${POSTGRES_PORT:-5432}:5432'
+      # Bound to loopback deliberately: the unqualified form binds 0.0.0.0 and
+      # exposes this dev database (known app/app credentials) to the whole
+      # LAN. Projects that need remote access should opt in explicitly.
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     volumes:
       # Postgres 18+ wants ONE mount at /var/lib/postgresql, not at
       # /var/lib/postgresql/data as older guides (and most LLM training data)

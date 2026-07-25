@@ -1,3 +1,11 @@
+# Machine-readable acceptance of the one open advisory documented below
+# (GHSA-mh99-v99m-4gvg, brace-expansion <=5.0.7). CI runs `pnpm audit`, so any
+# NEW advisory still fails the build. Remove this entry once minimatch moves
+# off brace-expansion 2.x upstream.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-mh99-v99m-4gvg
+
 allowBuilds:
   '@parcel/watcher': false
   '@tailwindcss/oxide': false

@@ -9,6 +9,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     # typecheck + lint + unit tests + migration freshness.
@@ -16,15 +19,18 @@ jobs:
     # This is the same command the agent runs locally — one definition of
     # "done", not a separate CI-only list of checks that can drift.
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
 
       - name: Install node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
           cache: pnpm
@@ -32,17 +38,27 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Audit dependencies
+        run: pnpm audit
+
       - name: Verify
         run: pnpm verify
 
       # `pnpm verify` writes a migration when the schema is stale. It already
-      # fails in that case; this makes any other dirty file impossible to miss.
+      # fails in that case; this also catches untracked files, so any other
+      # dirty file is impossible to miss.
       - name: Fail if the working tree is dirty
-        run: git diff --exit-code
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --porcelain
+            echo '::error::verify left the working tree dirty (see files above)'
+            exit 1
+          fi
 
   e2e:
     # The full stack against a real Postgres.
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     services:
       postgres:
@@ -64,13 +80,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
 
       - name: Install node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
           cache: pnpm
@@ -91,8 +109,64 @@ jobs:
 
       - name: Upload report on failure
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  docker:
+    # A green CI once coexisted with `docker build .` producing the wrong
+    # image (the migrate stage, not the app). CI must build what the README
+    # tells people to run.
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: app
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U app -d app"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Build runtime image (default target)
+        run: docker build -t app .
+
+      - name: Build migration image
+        run: docker build --target migrate -t app-migrate .
+
+      - name: Default image is the app, not the migrator
+        run: |
+          test "$(docker inspect app --format '{{join .Config.Cmd " "}}')" = "node .output/server/index.mjs"
+          test "$(docker inspect app --format '{{.Config.User}}')" = "app"
+          test "$(docker inspect app-migrate --format '{{join .Config.Cmd " "}}')" = "./node_modules/.bin/drizzle-kit migrate"
+
+      - name: Run migrations against the service database
+        run: docker run --rm --network host -e DATABASE_URL=postgres://app:app@localhost:5432/app app-migrate
+
+      - name: Boot the runtime image and probe it
+        run: |
+          docker run -d --name app --network host \
+            -e DATABASE_URL=postgres://app:app@localhost:5432/app \
+            -e NUXT_SESSION_PASSWORD=ci-session-password-at-least-32-characters \
+            app
+          for i in $(seq 1 30); do
+            curl -sf -o /dev/null http://localhost:3000/ && exit 0
+            sleep 1
+          done
+          echo '::error::runtime image never answered on :3000'
+          docker logs app
+          exit 1
