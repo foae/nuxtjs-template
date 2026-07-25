@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
  * Error boundary for the whole app. Nuxt renders this instead of a page when
- * a route throws `createError({ fatal: true })` — see `app/pages/posts/[id].vue`
- * turning an API 404 into a real 404.
+ * a route throws `createError({ fatal: true })` — see
+ * `app/pages/posts/[id]/index.vue` turning an API 404 into a real 404.
  *
  * Without this file you get Nuxt's built-in page, which leaks a stack trace
  * in development and gives users nothing useful in production.

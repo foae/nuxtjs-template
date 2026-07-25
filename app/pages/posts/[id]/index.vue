@@ -60,7 +60,14 @@ const isAuthor = computed(() => !!user.value && post.value?.author.id === user.v
     </div>
 
     <p class="text-sm text-muted mt-2">
-      by {{ post.author.name }} · {{ new Date(post.createdAt).toLocaleDateString() }}
+      by {{ post.author.name }} ·
+      <NuxtTime
+        :datetime="post.createdAt"
+        year="numeric"
+        month="short"
+        day="numeric"
+        locale="en-US"
+      />
     </p>
 
     <UAlert

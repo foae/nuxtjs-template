@@ -18,6 +18,7 @@ import { execSync } from 'node:child_process'
 import { readdirSync, readFileSync } from 'node:fs'
 import process from 'node:process'
 import { consola } from 'consola'
+import { verifyManifest } from './manifest'
 
 const MIGRATIONS_DIR = 'server/database/migrations'
 
@@ -104,7 +105,9 @@ function checkMigrationsFresh(): boolean {
     execSync('pnpm exec drizzle-kit generate', { stdio: 'pipe' })
   } catch (error) {
     consola.error('drizzle-kit generate failed')
-    consola.error(String((error as { stdout?: Buffer }).stdout ?? error))
+    const err = error as { stdout?: Buffer, stderr?: Buffer }
+    consola.error(`stdout: ${String(err.stdout ?? '')}`)
+    consola.error(`stderr: ${String(err.stderr ?? '')}`)
     results.push({ name, ok: false, ms: Date.now() - started })
     return false
   }
@@ -142,7 +145,7 @@ function checkMigrationsFresh(): boolean {
  * enforces that, so a dependency bump can leave an agent reading docs for a
  * version this project doesn't run. Cheap: two files, no network.
  */
-function checkVendoredDocsPinned(): boolean {
+async function checkVendoredDocsPinned(): Promise<boolean> {
   const started = Date.now()
   const name = 'vendored docs pinned'
   consola.start(name)
@@ -168,6 +171,16 @@ function checkVendoredDocsPinned(): boolean {
 
     if (vendored !== installed) {
       stale.push(`${label}: mirrored ${vendored}, installed ${installed} — run \`${fix}\``)
+      continue
+    }
+
+    // VERSION matches — that only says the mirror was regenerated at the
+    // right package version, not that nothing inside it was hand-edited
+    // afterward (CLAUDE.md rule 13). The manifest catches that.
+    const dir = file.replace(/\/VERSION$/, '')
+    const problems = await verifyManifest(dir)
+    if (problems.length > 0) {
+      stale.push(`${label}: ${problems.length} file(s) do not match ${dir}/MANIFEST.sha256 — run \`${fix}\``)
     }
   }
 
@@ -184,7 +197,7 @@ run('typecheck', 'pnpm run typecheck', 'Fix the type errors above.')
 run('lint', 'pnpm run lint', 'Run `pnpm lint:fix` to auto-fix what can be fixed.')
 run('test', 'pnpm run test', 'A failing schema-drift test means shared/schemas no longer matches the Drizzle schema.')
 checkMigrationsFresh()
-checkVendoredDocsPinned()
+await checkVendoredDocsPinned()
 
 const failed = results.filter(r => !r.ok)
 

@@ -24,6 +24,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
 import { consola } from 'consola'
+import { writeManifest } from './manifest'
 
 // This package is ESM ("type": "module"), so `require` does not exist.
 const require = createRequire(import.meta.url)
@@ -140,6 +141,11 @@ and are irrelevant here.
 Licensed MIT by the Nuxt team, same as the framework. See
 https://github.com/nuxt/nuxt/blob/main/LICENSE
 `)
+
+    // Recorded AFTER every file is in its final, marked state, so the
+    // manifest reflects exactly what `pnpm verify` will later compare
+    // against — see scripts/manifest.ts.
+    await writeManifest(OUT_DIR)
 
     consola.success(
       `Mirrored ${files} files (${(bytes / 1024).toFixed(0)} KB) for Nuxt ${version} -> docs/vendor/nuxt/`

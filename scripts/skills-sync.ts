@@ -18,6 +18,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { consola } from 'consola'
+import { writeManifest } from './manifest'
 
 const REPO = 'nuxt/ui'
 const SKILL_PREFIX = 'skills/nuxt-ui/'
@@ -161,6 +162,11 @@ component, is not pinned to your installed version, and needs the network.
 It also reflects your own \`app/app.config.ts\` theme overrides, which the
 published docs cannot know about.
 `)
+
+  // Recorded AFTER every file is written (marked + bannered where
+  // applicable), so the manifest reflects exactly what `pnpm verify` will
+  // later compare against — see scripts/manifest.ts.
+  await writeManifest(OUT_DIR)
 
   consola.success(
     `Vendored ${files.length} skill files (${(bytes / 1024).toFixed(0)} KB) for @nuxt/ui ${version} -> .agents/skills/nuxt-ui/`

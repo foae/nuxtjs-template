@@ -8,6 +8,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "verify": "tsx --env-file-if-exists=.env scripts/verify.ts",
+    "verify:full": "pnpm verify && pnpm build",
     "typecheck": "nuxt typecheck && tsc -p tsconfig.tools.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -23,6 +24,9 @@
     "db:reset": "tsx --env-file-if-exists=.env scripts/db-reset.ts",
     "docs:sync": "tsx --env-file-if-exists=.env scripts/docs-sync.ts",
     "skills:sync": "tsx --env-file-if-exists=.env scripts/skills-sync.ts"
+  },
+  "engines": {
+    "node": ">=24"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.119",
@@ -41,7 +45,7 @@
     "@nuxt/eslint": "^1.16.0",
     "@nuxt/test-utils": "^4.0.3",
     "@playwright/test": "^1.61.1",
-    "@types/node": "^26.1.1",
+    "@types/node": "^24.13.3",
     "@vue/test-utils": "^2.4.11",
     "drizzle-kit": "^0.31.10",
     "eslint": "^10.7.0",

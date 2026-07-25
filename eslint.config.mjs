@@ -23,16 +23,38 @@ export default withNuxt(
    * the rule reports nothing on `db.update(...)` — the exact call it is here
    * to guard.
    *
-   * Scoped to app/server/shared on purpose: type-aware linting is ~5x slower,
-   * and `scripts/` + `tests/` are covered by tsconfig.tools.json, which the
-   * project service does not resolve. Widening this to `**` reintroduces both
-   * the cost and a parser error on every file in those two directories.
+   * Scoped to app/server/shared here because those contexts are covered by
+   * `projectService`. `scripts/` and `tests/` are NOT invisible to type-aware
+   * linting — they get their own block below, pointed at
+   * `tsconfig.tools.json` explicitly, since the project service does not
+   * resolve them. Only root-level tooling config files (this one included)
+   * stay outside type-aware linting.
    */
   {
     files: ['app/**/*.{ts,vue}', 'server/**/*.ts', 'shared/**/*.ts'],
     languageOptions: {
       parserOptions: {
         projectService: true,
+        tsconfigRootDir: import.meta.dirname
+      }
+    },
+    rules: {
+      '@typescript-eslint/no-floating-promises': ['error', { checkThenables: true }],
+      '@typescript-eslint/await-thenable': 'error',
+      '@typescript-eslint/no-misused-promises': 'error'
+    }
+  },
+
+  /**
+   * Type-aware rules for scripts/ and tests/, pointed at tsconfig.tools.json
+   * explicitly since the app/server/shared project service above does not
+   * resolve these directories.
+   */
+  {
+    files: ['scripts/**/*.ts', 'tests/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        project: './tsconfig.tools.json',
         tsconfigRootDir: import.meta.dirname
       }
     },
@@ -50,10 +72,11 @@ export default withNuxt(
       'eqeqeq': ['error', 'always', { null: 'ignore' }],
       'object-shorthand': ['error', 'properties'],
       'prefer-template': 'error',
-      // Server logs go through `logger` (server/utils/logger.ts) so secrets are
-      // redacted and dev errors reach .logs/dev-errors.jsonl; scripts use
-      // consola. A bare console.log bypasses both, which makes it invisible to
-      // the agent reading its own failures.
+      // Server logs go through `logger` (server/utils/logger.ts) and the error-log
+      // plugin, which redact known secret shapes — but redaction is pattern-based
+      // and NOT exhaustive. Never log raw request bodies or credentials. A bare
+      // console.log bypasses the plugin entirely, making failures invisible to the
+      // agent reading .logs/dev-errors.jsonl.
       'no-console': 'error'
     }
   },
