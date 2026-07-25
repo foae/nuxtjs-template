@@ -26,6 +26,21 @@ export default defineNuxtConfig({
     public: {}
   },
 
+  // Conservative security-header baseline. HSTS and CSP are deliberately
+  // NOT set here: both belong to the deployment layer (reverse proxy /
+  // ingress), where TLS termination and per-project script inventories
+  // live. See README's deployment section.
+  routeRules: {
+    '/**': {
+      headers: {
+        'x-content-type-options': 'nosniff',
+        'x-frame-options': 'DENY',
+        'referrer-policy': 'strict-origin-when-cross-origin',
+        'permissions-policy': 'camera=(), microphone=(), geolocation=()'
+      }
+    }
+  },
+
   compatibilityDate: '2026-06-30',
 
   nitro: {
