@@ -5,6 +5,11 @@
  *
  * Use a tag per subsystem so output can be filtered:
  *   const log = logger.withTag('auth')
+ *
+ * `logger` itself does NOT redact — redaction happens where log payloads are
+ * assembled (see server/plugins/error-log.ts calling `redact()`). Redaction is
+ * pattern-based and not exhaustive: never log raw request bodies, credentials
+ * or full error objects that might wrap a database error.
  */
 import { consola } from 'consola'
 
@@ -12,8 +17,18 @@ export const logger = consola.withTag('app')
 
 /**
  * Redacts obvious secrets before anything is written to a log or error file.
- * Not exhaustive — it covers connection strings, bearer tokens and any key
- * whose name looks sensitive.
+ * Not exhaustive — it covers connection strings, bearer tokens, any key whose
+ * name looks sensitive, and the two database error shapes that carry user
+ * input:
+ *
+ *   - drizzle's DrizzleQueryError message ends in `params: <val>,<val>,...` —
+ *     on a failed INSERT into users that list contains the submitted email
+ *     and the scrypt password hash
+ *   - Postgres unique-violation `detail` reads `Key (email)=(<val>) already
+ *     exists.`
+ *
+ * The SQL text and constraint name are kept: they are the diagnostic, the
+ * parameter values are the secret.
  */
 export function redact<T>(value: T): T {
   const SENSITIVE = /pass(word)?|secret|token|api[-_]?key|authorization|cookie|session/i
@@ -24,6 +39,8 @@ export function redact<T>(value: T): T {
       return input
         .replace(/(\w+:\/\/[^:]+:)[^@]+(@)/g, '$1***$2')
         .replace(/(bearer\s+)[\w.-]+/gi, '$1***')
+        .replace(/(params:\s*).+$/gim, '$1***')
+        .replace(/(Key \([^)]*\)=\()[^)]*(\))/g, '$1***$2')
     }
     if (Array.isArray(input)) return input.map(v => walk(v, depth + 1))
     if (input && typeof input === 'object') {
@@ -37,4 +54,41 @@ export function redact<T>(value: T): T {
   }
 
   return walk(value, 0) as T
+}
+
+/**
+ * Postgres/drizzle attach the failed query's raw inputs to the error object
+ * itself — postgres.js sets `parameters`, drizzle sets `params`, and Postgres
+ * puts submitted values into `detail`/`where`/`internal_query`. Anything that
+ * prints the error object (not just its message) prints those too.
+ */
+const DB_VALUE_PROPS = ['parameters', 'params', 'detail', 'where', 'internal_query'] as const
+
+/**
+ * Scrubs secrets out of an error object IN PLACE, following the `cause` chain
+ * (drizzle wraps the postgres.js error as `cause`).
+ *
+ * In place is the point, not laziness: Nitro's `onError` starts the `error`
+ * hooks synchronously and then hands the SAME error object to its default
+ * handler, which does `console.error(..., error)` for unhandled errors
+ * (nitropack dist/runtime/internal/{app,error/prod}.mjs). Mutating the object
+ * during the hook's synchronous prefix is what keeps that raw print clean —
+ * scrubbing a copy would leave Nitro logging the original. See
+ * server/plugins/error-log.ts for the ordering constraint on the caller.
+ */
+export function scrubErrorInPlace(error: unknown, depth = 0): void {
+  if (depth > 5 || error === null || typeof error !== 'object') return
+  const target = error as Record<string, unknown> & { message?: unknown, stack?: unknown, cause?: unknown }
+
+  try {
+    if (typeof target.message === 'string') target.message = redact(target.message)
+    if (typeof target.stack === 'string') target.stack = redact(target.stack)
+    for (const prop of DB_VALUE_PROPS) {
+      if (prop in target && target[prop] !== undefined) target[prop] = '[redacted]'
+    }
+  } catch {
+    // A frozen or exotic error object must never break error handling itself.
+  }
+
+  scrubErrorInPlace(target.cause, depth + 1)
 }
