@@ -1,4 +1,4 @@
-# CLAUDE.md · AGENTS.md
+# AGENTS.md
 
 Server-rendered Nuxt 4 + Postgres template, built to be worked on by coding agents.
 
