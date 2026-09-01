@@ -29,31 +29,31 @@
     "node": ">=24"
   },
   "dependencies": {
-    "@iconify-json/lucide": "^1.2.119",
-    "@iconify-json/simple-icons": "^1.2.91",
-    "@nuxt/ui": "^4.10.0",
+    "@iconify-json/lucide": "^1.2.127",
+    "@iconify-json/simple-icons": "^1.2.94",
+    "@nuxt/ui": "^4.11.0",
     "consola": "^3.4.2",
     "drizzle-orm": "^0.45.2",
-    "nuxt": "^4.5.0",
-    "nuxt-auth-utils": "^0.5.29",
+    "nuxt": "^4.5.2",
+    "nuxt-auth-utils": "^0.5.30",
     "postgres": "^3.4.9",
     "tailwindcss": "^4.3.3",
-    "zod": "^4.4.3"
+    "zod": "^4.5.2"
   },
   "devDependencies": {
-    "@adonisjs/hash": "^10.1.0",
-    "@nuxt/eslint": "^1.16.0",
-    "@nuxt/test-utils": "^4.0.3",
-    "@playwright/test": "^1.61.1",
+    "@adonisjs/hash": "^10.1.1",
+    "@nuxt/eslint": "^1.17.0",
+    "@nuxt/test-utils": "^4.2.0",
+    "@playwright/test": "^1.62.1",
     "@types/node": "^24.13.3",
-    "@vue/test-utils": "^2.4.11",
+    "@vue/test-utils": "^2.5.0",
     "drizzle-kit": "^0.31.10",
-    "eslint": "^10.7.0",
-    "happy-dom": "^20.11.1",
-    "tsx": "^4.23.1",
+    "eslint": "^10.9.1",
+    "happy-dom": "^20.11.15",
+    "tsx": "^4.23.12",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.10",
-    "vue-tsc": "^3.3.8"
+    "vitest": "^4.1.11",
+    "vue-tsc": "^3.3.11"
   },
-  "packageManager": "pnpm@11.13.1"
+  "packageManager": "pnpm@11.25.0"
 }

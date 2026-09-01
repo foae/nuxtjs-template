@@ -127,7 +127,7 @@ the rest are worth opening only when the task needs them:
 | adding a page, route, or menu entry | `.agents/skills/nuxt-page/SKILL.md` |
 | choosing or composing UI components | `.agents/skills/nuxt-ui/SKILL.md` + `references/` |
 | after a component's exact props | `node_modules/@nuxt/ui/dist/runtime/components/<Name>.vue.d.ts` |
-| after framework behaviour (Nuxt itself) | `docs/vendor/nuxt/` — 235 markdown files, **grep it on purpose** |
+| after framework behaviour (Nuxt itself) | `docs/vendor/nuxt/` — 239 markdown files, **grep it on purpose** |
 | **adding an API endpoint or a resource** | **Adding a resource** below — stays in this file |
 | **adding a resource owned by another** | **Relations and ownership** below — read it *first* |
 | **changing the database** | **Changing the database** below |
@@ -306,7 +306,7 @@ where the reference slice stops being enough, so here is the shape. Take
 
 ## Searching this repo
 
-`docs/vendor/nuxt/` is 235 committed markdown files — deliberately committed
+`docs/vendor/nuxt/` is 239 committed markdown files — deliberately committed
 (grep is the cheapest lookup you have, version-pinned), but it **will drown
 your searches**: `useFetch` has single-digit hits in source and 153 in the
 mirror. Default to scoping searches to source, and search the docs only when
@@ -454,7 +454,7 @@ These cost real debugging time. Do not "fix" them back.
     changed file is a `.md` (or `LICENSE`) — but `docs/vendor/**` and
     `.agents/skills/nuxt-ui/**` are excluded from that, because they are
     markdown that `pnpm verify` actively checks: every file in both is hashed
-    into a `MANIFEST.sha256` (rule 13). ~296 of this repo's ~300 markdown
+    into a `MANIFEST.sha256` (rule 13). ~255 of this repo's ~260 markdown
     files are in those two trees, so a naive `paths-ignore: '**.md'` would
     skip CI for almost exactly the files CI exists to guard. **Add a tree to
     `VENDORED` in `scripts/verify.ts` and you must add it to that `case` list
@@ -548,7 +548,7 @@ rendering mode without being asked. The stack was chosen deliberately;
 
 TS 7 is the Go-native rewrite and it breaks typescript-eslint, vue-tsc AND
 Nuxt's generated `$fetch` types — three independent blockers, any one fatal
-(checked 2026-07-25; full evidence in `docs/decisions/typescript-7.md`).
+(re-tested 2026-09-01; full evidence in `docs/decisions/typescript-7.md`).
 Re-test by bumping `typescript` and running `pnpm verify`; revert unless all
 three pass. 6.0.3 is the latest 6.x, so we are not behind.
 

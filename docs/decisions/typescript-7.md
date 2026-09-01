@@ -7,7 +7,10 @@ TypeScript 7 is stable (7.0.2) and this project cannot use it yet. It is the
 Go-native rewrite: `typescript/lib/tsc.js` only `execve`s a platform binary,
 and the JS compiler API is gone from the exports map — which is why
 `@typescript/typescript6` exists as a separate package. Checked on
-2026-07-25, three independent blockers, any one of them fatal:
+2026-07-25 and re-tested 2026-09-01 (TS still 7.0.2; vue-tsc 3.3.11 and
+current typescript-eslint re-verified as blocked — blockers 1 and 2 below
+reproduced verbatim, so blocker 3 was not reached). Three independent
+blockers, any one of them fatal:
 
 1. **`pnpm lint` dies.** `@typescript-eslint/parser` throws
    `typescript-eslint does not support TS 7.0` — an explicit runtime guard,
