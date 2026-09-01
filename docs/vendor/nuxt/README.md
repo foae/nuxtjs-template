@@ -2,8 +2,8 @@
 
 # Vendored Nuxt documentation
 
-Nuxt **4.5.0**, taken from the `v4.5.0` tag of https://github.com/nuxt/nuxt
-(`docs/`). 235 markdown files, 1213 KB.
+Nuxt **4.5.2**, taken from the `v4.5.2` tag of https://github.com/nuxt/nuxt
+(`docs/`). 239 markdown files, 1268 KB.
 
 Regenerate with `pnpm docs:sync`. Do not edit these files by hand — the next
 sync overwrites them. Every page carries a `GENERATED … DO NOT EDIT` marker

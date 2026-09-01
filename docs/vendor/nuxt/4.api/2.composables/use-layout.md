@@ -20,6 +20,10 @@ Within a rendered `<NuxtLayout>` it reflects the enclosing layout; outside of on
 
 Unlike reading `route.meta.layout` directly, this accounts for a layout set through route rules and stays in sync as the route changes.
 
+## Return Values
+
+A read-only computed ref resolving to the layout name (a `string`), or `false` when the layout is disabled.
+
 ## Example
 
 ```vue [app.vue]
@@ -36,7 +40,3 @@ const layout = useLayout()
   </div>
 </template>
 ```
-
-## Return Values
-
-A read-only computed ref resolving to the layout name (a `string`), or `false` when the layout is disabled.
