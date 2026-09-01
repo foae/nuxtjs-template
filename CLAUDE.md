@@ -564,8 +564,10 @@ form does.
 
 Two consequences worth knowing before you build on it:
 
-- The session cookie is a bearer credential valid until it expires. Deleting or
-  disabling a user does **not** log them out, and `user.name` in the session is
+- The session cookie is a bearer credential valid until it expires (30 days,
+  `session.maxAge` in `nuxt.config.ts` — the only bound, since nothing can
+  revoke it earlier). Deleting or disabling a user does **not** log them out,
+  and `user.name` in the session is
   a snapshot from login, not the current row. Anything that must be current —
   or revocable — has to be read from the database per request.
 - Authorisation is per-handler, by hand (`authorId === user.id`, see rule 9).

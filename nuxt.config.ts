@@ -23,6 +23,12 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // Server-only. Overridden by DATABASE_URL (see .env.example).
     databaseUrl: process.env.DATABASE_URL ?? '',
+    // Sealed session cookie TTL. There is no session revocation (see
+    // CLAUDE.md "What the auth deliberately is not"), so this bound is the
+    // only thing that ends a stolen or stale session.
+    session: {
+      maxAge: 60 * 60 * 24 * 30 // 30 days
+    },
     public: {}
   },
 
