@@ -27,6 +27,11 @@ Agent instructions live in [`CLAUDE.md`](./CLAUDE.md).
 | Tests | Vitest + Playwright | Unit ~1s; e2e covers the flows units can't reach |
 | Deploy | Nitro `node-server` + Docker | No vendor lock-in, no edge-runtime caveats |
 
+Deliberately **not** included: `@nuxt/image`, `@nuxtjs/seo`, `@vueuse/nuxt` —
+a minimal template shouldn't ship modules its reference app never exercises.
+The "Deliberately not installed" table in [`CLAUDE.md`](./CLAUDE.md) names the
+exact package to reach for when each need becomes real.
+
 ## What makes it agent-first
 
 Choosing "LLM-friendly" libraries is the easy half, and the least important.

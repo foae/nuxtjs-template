@@ -544,6 +544,20 @@ Do not add a dependency, switch the ORM/UI/auth library, or change the
 rendering mode without being asked. The stack was chosen deliberately;
 `README.md` records what and why.
 
+### Deliberately not installed — adopt when the need is real
+
+Assessed against 2026 community practice and left out on purpose (a minimal
+template should not ship modules its reference app never exercises). When a
+project actually needs one, these are the packages — no research required:
+
+| Need | Package | Notes |
+|---|---|---|
+| Images (resize, formats, CDN) | `@nuxt/image` | first-party; add the moment the app renders its first real image |
+| SEO (sitemap, robots, OG images, schema.org) | `@nuxtjs/seo` | meta-bundle of 7 modules; for just one concern install it standalone (`@nuxtjs/sitemap`, `@nuxtjs/robots`, `nuxt-og-image`) |
+| Utility composables | `@vueuse/nuxt` | add when a specific composable is needed, not preemptively |
+| Fonts | — | already covered: Nuxt UI auto-registers `@nuxt/fonts` |
+| CSP nonces / security headers module | `nuxt-security` | evaluated 2026-09-01 and declined: headers stay hand-set, CSP/HSTS belong to the reverse proxy (see README) |
+
 ### TypeScript stays on 6.x — do not "upgrade" to 7
 
 TS 7 is the Go-native rewrite and it breaks typescript-eslint, vue-tsc AND
