@@ -47,6 +47,11 @@ export default defineNuxtConfig({
     // Self-hosted Node + Docker. See Dockerfile.
     preset: 'node-server',
 
+    // Pre-compress build-time public assets (JS/CSS bundles) at build; Nitro
+    // then serves the .gz/.br variant. Off by default, but this deployment is
+    // self-hosted with no CDN in front, so nothing else compresses them.
+    compressPublicAssets: { gzip: true, brotli: true },
+
     // tsconfig.server.json — the server context is configured here, not under
     // the top-level `typescript` key. See the comment there.
     typescript: {

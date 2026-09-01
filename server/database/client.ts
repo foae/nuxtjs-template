@@ -17,6 +17,10 @@ export interface DbHandle {
 }
 
 export function createDb(url: string, max = 10): DbHandle {
+  // Direct connection to Postgres, so prepared statements stay on (the
+  // postgres.js default). If a transaction-mode pooler (PgBouncer, Supabase,
+  // Neon pooling) is ever put in front, add `prepare: false` — prepared
+  // statements are not supported there and fail confusingly at runtime.
   const client = postgres(url, { max, onnotice: () => {} })
   return {
     db: drizzle(client, { schema, casing: 'snake_case' }),

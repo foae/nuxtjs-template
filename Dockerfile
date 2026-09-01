@@ -15,7 +15,11 @@
 FROM node:24-alpine AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+# Corepack is installed explicitly rather than relying on the copy bundled
+# with Node: Node 25+ no longer ships corepack (nodejs/corepack#687), so a
+# bare `corepack enable` silently stops working on the next LTS bump. The
+# pnpm version itself still comes from package.json#packageManager.
+RUN npm install -g corepack@0.36.0 && corepack enable
 WORKDIR /app
 
 # ---- build ----------------------------------------------------------------
