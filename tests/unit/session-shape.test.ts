@@ -3,13 +3,17 @@
  * type augmentation is hand-written, and nothing forces it to match what
  * `setUserSession()` actually stores.
  *
- * Types are erased at runtime, so this reads the declaration file and the
- * handlers as text and compares the field names. It is a lint, not a proof —
- * but it catches the realistic failure: an agent adds a field to the session
- * in a handler and forgets the augmentation, silently losing `user.<field>`
- * typing across every server route.
+ * Types are erased at runtime, so this reads the declaration file and
+ * `server/utils/session.ts` as text and compares the field names. It is a
+ * lint, not a proof — but it catches the realistic failure: an agent adds a
+ * field to the session and forgets the augmentation, silently losing
+ * `user.<field>` typing across every server route.
+ *
+ * `signInUser()` is the only place allowed to seal the cookie, and the last
+ * test below enforces that: a handler calling `setUserSession()` directly
+ * would be invisible to the check above.
  */
-import { readFileSync } from 'node:fs'
+import { globSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
@@ -71,10 +75,7 @@ function storedUserFields(file: string): string[] {
     .filter((name): name is string => name !== undefined)
 }
 
-const HANDLERS = [
-  '../../server/api/auth/login.post.ts',
-  '../../server/api/auth/register.post.ts'
-]
+const HANDLERS = ['../../server/utils/session.ts']
 
 describe('session shape matches its type augmentation', () => {
   const declared = declaredUserFields()
@@ -84,8 +85,6 @@ describe('session shape matches its type augmentation', () => {
     expect(declared.length).toBeGreaterThan(1)
   })
 
-  // Every handler, not just login: two handlers writing different shapes into
-  // the same cookie is exactly the drift this is here to catch.
   for (const file of HANDLERS) {
     it(`${file.split('/').pop()} stores exactly the declared fields`, () => {
       const stored = storedUserFields(file)
@@ -99,5 +98,14 @@ describe('session shape matches its type augmentation', () => {
     for (const file of HANDLERS) {
       expect(storedUserFields(file), file).not.toContain('passwordHash')
     }
+  })
+
+  it('no handler seals the cookie except server/utils/session.ts', () => {
+    const root = fileURLToPath(new URL('../../server/', import.meta.url))
+    const offenders = globSync('**/*.ts', { cwd: root })
+      .filter(file => file !== 'utils/session.ts')
+      .filter(file => readFileSync(root + file, 'utf8').includes('setUserSession('))
+
+    expect(offenders, 'call signInUser() instead — see server/utils/session.ts').toEqual([])
   })
 })

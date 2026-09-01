@@ -23,7 +23,7 @@ Agent instructions live in [`CLAUDE.md`](./CLAUDE.md).
 | UI | Nuxt UI v4 + Tailwind v4 | 125+ components, and a **first-party agent skill** |
 | Database | Postgres 18 + Drizzle | Schema is plain TypeScript — real types via LSP, no opaque generated client; migrations are readable SQL |
 | Validation | Zod 4 in `shared/` | One schema drives server validation *and* the UI form |
-| Auth | nuxt-auth-utils | Sealed-cookie sessions, no codegen step to forget |
+| Auth | nuxt-auth-utils | Password **and** one-click Google/GitHub, sealed-cookie sessions, no codegen step to forget |
 | Tests | Vitest + Playwright | Unit ~1s; e2e covers the flows units can't reach |
 | Deploy | Nitro `node-server` + Docker | No vendor lock-in, no edge-runtime caveats |
 
@@ -70,6 +70,15 @@ What actually matters is that mistakes get *caught mechanically*:
   the vendor-neutral [Agent Skills](https://agentskills.io) location that pi and
   OpenCode load natively — with `.claude/skills` symlinked there for Claude
   Code. One copy, three harnesses, nothing to drift.
+
+## Make it yours
+
+The default look is deliberately not the Nuxt UI docs default. Every knob
+that gives a project its own identity is in two files —
+`app/assets/css/main.css` (the `BRAND` block: colour scale, fonts, radius,
+content width) and `app/app.config.ts` (site name and tagline, which palette
+is `primary`, which grey is `neutral`, per-component defaults) — plus
+`public/favicon.svg`. `CLAUDE.md` → *Making it yours* has the table.
 
 ## Layout
 
@@ -124,12 +133,14 @@ fails CI.
 
 ### Auth scope
 
-Email + password with sealed-cookie sessions, plus basic in-process rate
-limiting on login and registration. That limiter is per-replica and resets on
-restart (`server/utils/rate-limit-core.ts` documents what to replace it with
-before scaling out), and there is no password reset, email verification or
-session revocation — `CLAUDE.md` lists the exact boundaries before you build
-on it.
+Email + password, plus one-click Google and GitHub sign-in — a provider's
+button shows up only once its `NUXT_OAUTH_*` credentials are set (see
+`.env.example`), and accounts are linked by *verified* email. Sessions are a
+sealed cookie. Login and registration have basic in-process rate limiting,
+which is per-replica and resets on restart (`server/utils/rate-limit-core.ts`
+documents what to replace it with before scaling out). There is no password
+reset, email verification for password sign-ups, or session revocation —
+`CLAUDE.md` lists the exact boundaries before you build on it.
 
 ## Licence
 

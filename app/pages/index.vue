@@ -42,7 +42,7 @@ function goToPage(next: number) {
 <template>
   <UContainer class="py-10">
     <div class="mb-8">
-      <h1 class="text-2xl font-semibold">
+      <h1 class="text-2xl font-display font-semibold tracking-tight">
         Posts
       </h1>
       <p class="text-muted mt-1">

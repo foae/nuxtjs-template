@@ -1,18 +1,40 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/* ============================================================
+ * BRAND — the per-project knobs. Change these, nothing else, to make
+ * a new project look like itself. Pair with app/app.config.ts.
+ * ============================================================ */
 @theme static {
-  --font-sans: 'Public Sans', sans-serif;
+  /* Fonts: any Google Fonts family name works — @nuxt/fonts (bundled by
+   * Nuxt UI) downloads and self-hosts it at build. `--font-sans` is what
+   * every component uses; `--font-display` is opt-in via `font-display`
+   * on headings. */
+  --font-sans: 'Figtree', sans-serif;
+  --font-display: 'Bricolage Grotesque', sans-serif;
 
-  --color-green-50: #EFFDF5;
-  --color-green-100: #D9FBE8;
-  --color-green-200: #B3F5D1;
-  --color-green-300: #75EDAE;
-  --color-green-400: #00DC82;
-  --color-green-500: #00C16A;
-  --color-green-600: #00A155;
-  --color-green-700: #007F45;
-  --color-green-800: #016538;
-  --color-green-900: #0A5331;
-  --color-green-950: #052E16;
+  /* Brand colour scale. app.config.ts points `primary` at this. The
+   * fastest swap is to point `primary` at a built-in Tailwind palette
+   * (e.g. 'indigo') and delete this scale; keep the scale when the brand
+   * has its own colour. Must be all 11 steps or Nuxt UI variants break. */
+  --color-brand-50: oklch(97.5% 0.014 30);
+  --color-brand-100: oklch(94.2% 0.033 30);
+  --color-brand-200: oklch(88.8% 0.066 30);
+  --color-brand-300: oklch(81.5% 0.108 30);
+  --color-brand-400: oklch(71.5% 0.148 30);
+  --color-brand-500: oklch(62% 0.17 30);
+  --color-brand-600: oklch(55.5% 0.172 30);
+  --color-brand-700: oklch(47.5% 0.15 30);
+  --color-brand-800: oklch(41% 0.122 30);
+  --color-brand-900: oklch(36.5% 0.098 30);
+  --color-brand-950: oklch(24.5% 0.064 30);
+}
+
+:root {
+  /* Corner roundness for every component (Nuxt UI default: 0.25rem). */
+  --ui-radius: 0.5rem;
+  /* Max content width for <UContainer> (default: 80rem). */
+  --ui-container: 72rem;
+  /* Page/text/border colours per mode — uncomment to tint, e.g. a warm
+   * off-white page: --ui-bg: var(--ui-color-neutral-50); */
 }

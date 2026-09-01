@@ -11,6 +11,7 @@
  */
 import type { NavigationMenuItem } from '@nuxt/ui'
 
+const { site } = useAppConfig()
 const { loggedIn, user, clear } = useUserSession()
 const toast = useToast()
 
@@ -42,9 +43,9 @@ async function logout() {
       <template #left>
         <NuxtLink
           to="/"
-          class="font-semibold"
+          class="font-display font-semibold tracking-tight"
         >
-          Agent-First Template
+          {{ site.name }}
         </NuxtLink>
       </template>
 
@@ -104,7 +105,7 @@ async function logout() {
     <UFooter>
       <template #left>
         <p class="text-sm text-muted">
-          Nuxt · Postgres · Drizzle — © {{ new Date().getFullYear() }}
+          {{ site.name }} © {{ new Date().getFullYear() }}
         </p>
       </template>
     </UFooter>

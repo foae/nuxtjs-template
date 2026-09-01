@@ -18,10 +18,11 @@ const state = reactive({ email: '', password: '', name: '' })
 
 const redirectTarget = computed(() => {
   const raw = route.query.redirect
-  const value = Array.isArray(raw) ? raw[0] : raw
-  // Only same-origin paths: a full URL or protocol-relative value is ignored.
-  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//') ? value : '/'
+  return safeRedirectPath(Array.isArray(raw) ? raw[0] : raw)
 })
+
+const providers = useOAuthProviders()
+const hasProviders = computed(() => providers.value.google || providers.value.github)
 
 // The endpoint is a getter because it changes with `mode`; useApiForm
 // resolves it at submit time.
@@ -45,13 +46,48 @@ async function onSubmit(event: FormSubmitEvent<Record<string, unknown>>) {
 
 <template>
   <UContainer class="py-10 max-w-md">
-    <h1 class="text-2xl font-semibold mb-1">
+    <h1 class="text-2xl font-semibold font-display tracking-tight mb-1">
       {{ mode === 'login' ? 'Sign in' : 'Create an account' }}
     </h1>
     <p class="text-muted text-sm mb-6">
       Seeded accounts: <code>ada@example.com</code> /
       <code>correct-horse-battery-staple</code>
     </p>
+
+    <UAlert
+      v-if="route.query.error === 'oauth'"
+      class="mb-6"
+      color="error"
+      variant="subtle"
+      title="Sign-in with the provider failed. Try again or use your password."
+    />
+
+    <div
+      v-if="hasProviders"
+      class="space-y-3 mb-6"
+    >
+      <UButton
+        v-if="providers.google"
+        label="Continue with Google"
+        icon="i-simple-icons-google"
+        color="neutral"
+        variant="outline"
+        block
+        external
+        :to="`/auth/google?redirect=${encodeURIComponent(redirectTarget)}`"
+      />
+      <UButton
+        v-if="providers.github"
+        label="Continue with GitHub"
+        icon="i-simple-icons-github"
+        color="neutral"
+        variant="outline"
+        block
+        external
+        :to="`/auth/github?redirect=${encodeURIComponent(redirectTarget)}`"
+      />
+      <USeparator label="or" />
+    </div>
 
     <UForm
       :schema="schema"

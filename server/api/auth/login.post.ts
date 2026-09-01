@@ -2,9 +2,9 @@
  * POST /api/auth/login
  *
  * Password auth is the template default because it needs no external
- * credentials. To use OAuth instead, replace this handler with
- * `defineOAuthGitHubEventHandler` (nuxt-auth-utils ships 40+ providers) and
- * drop the `passwordHash` column.
+ * credentials. One-click sign-in lives alongside it in `server/routes/auth/`
+ * and is enabled per provider by config; both paths seal the cookie through
+ * `signInUser()`.
  */
 import { credentialsSchema } from '#shared/schemas/auth'
 import { eq } from 'drizzle-orm'
@@ -35,15 +35,7 @@ export default defineEventHandler(async (event) => {
   if (!user?.passwordHash) throw invalid()
   if (!(await verifyPassword(user.passwordHash, password))) throw invalid()
 
-  await setUserSession(event, {
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      avatarUrl: user.avatarUrl
-    },
-    loggedInAt: new Date().toISOString()
-  })
+  await signInUser(event, user)
 
   logger.info('user logged in', { userId: user.id })
   return { ok: true }

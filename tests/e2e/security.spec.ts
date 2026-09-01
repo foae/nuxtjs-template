@@ -220,3 +220,35 @@ test('security headers are served and x-powered-by is not', async ({ playwright 
     await anon.dispose()
   }
 })
+
+test('OAuth buttons are hidden when no provider is configured', async ({ playwright }) => {
+  // The buttons are server-rendered from the private runtime config, so the
+  // raw HTML is the real assertion: no client id configured, no button.
+  const anon = await playwright.request.newContext({ baseURL: BASE_URL })
+  try {
+    const login = await anon.get('/login')
+    expect(login.status()).toBe(200)
+    expect(await login.text()).not.toContain('Continue with')
+  } finally {
+    await anon.dispose()
+  }
+})
+
+test('the OAuth callback rejects a forged callback', async ({ playwright }) => {
+  // No client id is configured, and the state cookie does not match either —
+  // whatever the failure mode, it must never end with a sealed session.
+  const anon = await playwright.request.newContext({ baseURL: BASE_URL })
+  try {
+    const response = await anon.get('/auth/google?code=x&state=y', { maxRedirects: 0 })
+
+    if (response.status() < 400) {
+      expect([301, 302, 303, 307, 308]).toContain(response.status())
+      expect(response.headers()['location']).toBe('/login?error=oauth')
+    }
+
+    const cookies = await anon.storageState()
+    expect(cookies.cookies.map(c => c.name)).not.toContain('nuxt-session')
+  } finally {
+    await anon.dispose()
+  }
+})

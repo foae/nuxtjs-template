@@ -23,7 +23,7 @@ useHead({ title: `${props.error.statusCode} — ${props.error.statusMessage}` })
 <template>
   <UApp>
     <UContainer class="py-24 text-center max-w-lg">
-      <p class="text-6xl font-semibold text-primary">
+      <p class="text-6xl font-display font-semibold tracking-tight text-primary">
         {{ error.statusCode }}
       </p>
 

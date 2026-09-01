@@ -48,20 +48,9 @@ export default defineEventHandler(async (event) => {
 
   if (!user) throw createError({ statusCode: 500, statusMessage: 'Insert returned no row' })
 
-  // Fields written out here rather than passing `user` through: the stored
-  // session shape is checked by tests/unit/session-shape.test.ts, which reads
-  // this call as text and cannot see through a shorthand. Keeping the shape
-  // legible at the call site is also how you notice you are about to seal a
-  // column like `passwordHash` into a cookie.
-  await setUserSession(event, {
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      avatarUrl: user.avatarUrl
-    },
-    loggedInAt: new Date().toISOString()
-  })
+  // The session shape lives in server/utils/session.ts — the only place that
+  // seals the cookie.
+  await signInUser(event, user)
   logger.info('user registered', { userId: user.id })
   setResponseStatus(event, 201)
   return { ok: true }

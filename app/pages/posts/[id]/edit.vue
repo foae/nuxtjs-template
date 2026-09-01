@@ -78,7 +78,7 @@ async function remove() {
 
 <template>
   <UContainer class="py-10 max-w-2xl">
-    <h1 class="text-2xl font-semibold mb-6">
+    <h1 class="text-2xl font-display font-semibold tracking-tight mb-6">
       Edit post
     </h1>
 

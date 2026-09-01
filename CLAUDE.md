@@ -125,6 +125,8 @@ the rest are worth opening only when the task needs them:
 | When you are… | Open |
 |---|---|
 | adding a page, route, or menu entry | `.agents/skills/nuxt-page/SKILL.md` |
+| changing the look — colours, fonts, radius, site name | **Making it yours** below — two files, nothing else |
+| adding a sign-in provider (Google, GitHub, …) | `server/routes/auth/google.get.ts` — copy it, see **Auth** below |
 | choosing or composing UI components | `.agents/skills/nuxt-ui/SKILL.md` + `references/` |
 | after a component's exact props | `node_modules/@nuxt/ui/dist/runtime/components/<Name>.vue.d.ts` |
 | after framework behaviour (Nuxt itself) | `docs/vendor/nuxt/` — 239 markdown files, **grep it on purpose** |
@@ -161,6 +163,7 @@ markdown and self-contained.
 |---|---|
 | Add a page / route | `app/pages/` — file-based routing |
 | Change site chrome (nav, footer) | `app/layouts/default.vue` — **not** `app/app.vue` |
+| Change colours, fonts, radius, site name | `app/assets/css/main.css` (BRAND block) + `app/app.config.ts` — see **Making it yours** |
 | Change the error page | `app/error.vue` — renders *instead of* the layout |
 | Add a UI component | `app/components/` — auto-imported |
 | Add a client composable | `app/composables/` — auto-imported |
@@ -169,6 +172,8 @@ markdown and self-contained.
 | Add an API endpoint | `server/api/` — file = route, `.get.ts`/`.post.ts` = method |
 | Add a resource that belongs to another | read **Relations and ownership** below first |
 | Add a server helper | `server/utils/` — **auto-imported across the server** |
+| Sign a user in | `signInUser()` in `server/utils/session.ts` — the **only** file allowed to call `setUserSession` (a unit test enforces it) |
+| Add an OAuth provider | `server/routes/auth/<provider>.get.ts` — copy `google.get.ts`; `server/utils/oauth.ts` does the linking |
 | Change the database | `server/database/schema.ts`, then `pnpm db:generate` |
 | Add a wire contract (validation) | `shared/schemas/` — imported by both sides |
 | Add a shared type | `shared/types/` — auto-imported in app *and* server |
@@ -301,6 +306,31 @@ where the reference slice stops being enough, so here is the shape. Take
    handler. Copied checks drift, and the copy that drifts is the one that
    forgot the tenant predicate. `pnpm verify` cannot catch a missing `WHERE
    tenant_id = ...` — nothing here can — so it has to live in one place.
+
+---
+
+## Making it yours
+
+The default look is deliberately **not** the Nuxt UI docs look (that is what
+every unthemed Nuxt UI site ships with). Everything that makes the site look
+like *this* project lives in exactly two files, and changing a new project's
+identity should never take more than those:
+
+| Knob | Where | Notes |
+|---|---|---|
+| Site name, tagline | `app/app.config.ts` → `site` | read by `app.vue` (title template, meta) and the layout |
+| Brand colour | `app/assets/css/main.css` → `--color-brand-*` | 11 steps, all required. Fastest swap: point `ui.colors.primary` at a Tailwind palette name (`'indigo'`) and delete the scale |
+| Neutral grey | `app/app.config.ts` → `ui.colors.neutral` | `stone` (warm) by default; `zinc`/`slate` read cooler |
+| Fonts | `main.css` → `--font-sans`, `--font-display` | any Google Fonts family name; `@nuxt/fonts` self-hosts it at build. `font-display` is opt-in on headings |
+| Corner radius | `main.css` → `--ui-radius` | one value drives every component |
+| Content width | `main.css` → `--ui-container` | `<UContainer>` max width |
+| Favicon | `public/favicon.svg` (+ `.ico` fallback) | the brand colour and one letter |
+| Per-component defaults | `app/app.config.ts` → `ui.<component>` | variants, sizes, slot classes; shape in `.agents/skills/nuxt-ui/` |
+
+Do not scatter brand values into components: a page that hard-codes
+`text-green-500` breaks the moment `primary` changes. Use the semantic
+classes (`text-primary`, `bg-elevated`, `text-muted`, …) that Nuxt UI derives
+from these knobs.
 
 ---
 
@@ -566,15 +596,35 @@ Nuxt's generated `$fetch` types — three independent blockers, any one fatal
 Re-test by bumping `typescript` and running `pnpm verify`; revert unless all
 three pass. 6.0.3 is the latest 6.x, so we are not behind.
 
-### What the auth deliberately is not
+### What the auth is — and deliberately is not
 
-Email + password with a sealed session cookie, plus basic in-process rate
-limiting on login and registration (per-IP; login counts only failed
-attempts). That limiter is per-replica and resets on restart —
-`server/utils/rate-limit-core.ts` says what must replace it before scaling
-out. There is **no** password reset, email verification, session revocation
-or disabled-account check. Do not assume any of them exist because a login
-form does.
+Two ways in, both through nuxt-auth-utils and both ending in the same
+sealed session cookie:
+
+- **Email + password** (`server/api/auth/login.post.ts`, `register.post.ts`),
+  with basic in-process rate limiting (per-IP; login counts only failed
+  attempts). That limiter is per-replica and resets on restart —
+  `server/utils/rate-limit-core.ts` says what must replace it before scaling
+  out.
+- **One-click OAuth** — Google and GitHub are wired
+  (`server/routes/auth/<provider>.get.ts`). A provider's button appears on
+  `/login` only when its `NUXT_OAUTH_<PROVIDER>_CLIENT_ID` is set
+  (`useOAuthProviders()` in `app/composables/` resolves the flags during SSR — booleans only, never the ids), so a fresh clone works with no
+  credentials. Accounts are **linked by email**, and only when the provider
+  says the email is verified — an unverified email is refused, because
+  linking on it lets anyone who can register that address at a provider take
+  over the account (`server/utils/oauth.ts`). To add a provider, copy
+  `google.get.ts` and swap the `defineOAuth<Provider>EventHandler`; the module
+  ships 40+.
+
+Every handler signs in through `signInUser()` (`server/utils/session.ts`),
+which is the only place `setUserSession` may be called —
+`tests/unit/session-shape.test.ts` checks both that and that the sealed
+shape matches `shared/types/auth.d.ts`.
+
+There is **no** password reset, email verification for password sign-ups,
+session revocation or disabled-account check. Do not assume any of them exist
+because a login form does.
 
 Two consequences worth knowing before you build on it:
 

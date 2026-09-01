@@ -39,7 +39,7 @@ const isAuthor = computed(() => !!user.value && post.value?.author.id === user.v
     />
 
     <div class="flex items-start justify-between gap-4">
-      <h1 class="text-2xl font-semibold">
+      <h1 class="text-2xl font-display font-semibold tracking-tight">
         {{ post.title }}
       </h1>
       <div class="flex items-center gap-2 shrink-0">
