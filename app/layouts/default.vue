@@ -31,6 +31,13 @@ async function logout() {
 
 <template>
   <div>
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:rounded-md focus:bg-default focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:ring-2 focus:ring-primary"
+    >
+      Skip to content
+    </a>
+
     <UHeader>
       <template #left>
         <NuxtLink
@@ -87,7 +94,10 @@ async function logout() {
       </template>
     </UHeader>
 
-    <UMain>
+    <UMain
+      id="main"
+      tabindex="-1"
+    >
       <slot />
     </UMain>
 

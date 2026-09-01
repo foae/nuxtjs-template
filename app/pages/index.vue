@@ -18,6 +18,8 @@ const PER_PAGE = 10
 
 const route = useRoute()
 
+useSeoMeta({ title: 'Posts' })
+
 // Clamp: a hand-edited `?page=0` or `?page=abc` must not produce a negative
 // offset, which the API would reject with a 422.
 const page = computed(() => {

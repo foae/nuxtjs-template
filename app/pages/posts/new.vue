@@ -13,6 +13,8 @@ import type { z } from 'zod'
 
 definePageMeta({ middleware: 'auth' })
 
+useSeoMeta({ title: 'New post' })
+
 type Schema = z.output<typeof postCreateSchema>
 
 const state = reactive({

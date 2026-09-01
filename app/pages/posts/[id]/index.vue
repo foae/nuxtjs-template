@@ -19,6 +19,8 @@ if (error.value) {
   })
 }
 
+useSeoMeta({ title: () => post.value?.title ?? 'Post' })
+
 const isAuthor = computed(() => !!user.value && post.value?.author.id === user.value.id)
 </script>
 

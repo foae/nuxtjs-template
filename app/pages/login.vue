@@ -12,6 +12,8 @@ const { fetch: refreshSession } = useUserSession()
 const mode = ref<'login' | 'register'>('login')
 const schema = computed(() => (mode.value === 'login' ? credentialsSchema : registerSchema))
 
+useSeoMeta({ title: () => (mode.value === 'login' ? 'Sign in' : 'Register') })
+
 const state = reactive({ email: '', password: '', name: '' })
 
 const redirectTarget = computed(() => {

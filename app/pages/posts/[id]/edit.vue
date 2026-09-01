@@ -14,6 +14,8 @@ import type { z } from 'zod'
 
 definePageMeta({ middleware: 'auth' })
 
+useSeoMeta({ title: 'Edit post' })
+
 const route = useRoute()
 const toast = useToast()
 const { user } = useUserSession()
