@@ -537,16 +537,45 @@ exhaustive: never log raw request bodies or credentials yourself.
 | `pnpm test:e2e` | Playwright — **builds first and resets the DB**, so it tests your actual change and is repeatable |
 | `pnpm docs:sync` | re-mirror Nuxt docs at the installed version |
 | `pnpm skills:sync` | re-vendor the Nuxt UI skill |
+| `pnpm release:prepare <version>` | bump the template's stable SemVer on clean main |
+| `pnpm release:publish "<title>" <notes-file>` | require exact-commit green CI, annotate/push an immutable tag, publish and verify the stable GitHub release |
 
-Everything except `verify` and `test` needs a `.env` — it is gitignored, so a
-fresh clone has none. `cp .env.example .env` once; `DATABASE_URL` and a 32-char
-`NUXT_SESSION_PASSWORD` are the two that matter. `verify` passing on a machine
-with no `.env` is expected, not proof the database commands will work.
+Database/runtime commands need a `.env` — it is gitignored, so a fresh clone
+has none. `cp .env.example .env` once; `DATABASE_URL` and a random, at least
+32-character `NUXT_SESSION_PASSWORD` are the two that matter. Verification
+and release tooling do not require `.env`.
 
 Seeded logins: `ada@example.com` / `grace@example.com`, password
 `correct-horse-battery-staple`. `scripts/seed.ts` exports `SEED_IDS` with the
 fixed UUIDs for both users and both posts (one published, one draft) — address
 seeded rows through it instead of scraping ids out of a list response.
+
+---
+
+## Release every shipped change
+
+Keep `package.json#version` as the template's version source. Every shipped
+change, including documentation/configuration, gets a new named stable release:
+patch for compatible fixes/docs, minor for compatible features, major for
+breaking changes. Vendored framework/skill versions are independent.
+
+1. Commit implementation changes, then run `pnpm release:prepare <version>`
+   from clean `main`; this changes the package version without tagging.
+2. Write accurate notes in `.private/release-notes.md` (never secrets).
+3. Run `pnpm verify` and `pnpm test:e2e`; commit the version bump and push main.
+4. Wait for successful verify, e2e, Docker and aggregate CI jobs on that exact
+   commit. A prior green run or prose-only skipped checks are insufficient.
+5. Run `pnpm release:publish "<meaningful title>" .private/release-notes.md`.
+   It checks remote main and CI, creates an annotated `vMAJOR.MINOR.PATCH` tag,
+   pushes with an absent-tag lease, and publishes/verifies a stable non-draft
+   GitHub release using `gh`.
+
+Never move an existing published tag. If a partial publish leaves a tag, inspect
+the tag target and GitHub release before completing it manually; do not retag.
+The release tool requires GitHub CLI authentication with repository write access.
+Do not add AI authorship/co-author credits. Retain necessary tool integration
+references and upstream copyright notices. Keep private configuration in ignored
+`.private/` or `.env` files and out of commits and Docker build contexts.
 
 ---
 

@@ -1,147 +1,187 @@
-# Agent-first Nuxt 4 template
+# Nuxt 4 + Postgres template
 
-Server-rendered Nuxt 4 + Postgres starter, optimised for being *written by a
-coding agent* with a human reviewing.
+A TypeScript, server-rendered starter for database-backed web applications.
+It includes a working posts application, email/password and optional Google/GitHub
+sign-in, shared Zod validation, and development guidance for humans and coding tools.
+
+## What's included
+
+- Nuxt 4, Nuxt UI 4 and Tailwind CSS 4, with configurable branding.
+- PostgreSQL 18, Drizzle schema and migrations, and deterministic development seeds.
+- Owner-scoped posts with drafts, pagination and create/edit/delete forms.
+- Sealed-cookie sessions, verified-email OAuth linking and basic auth rate limiting.
+- Vitest unit tests, Playwright browser/API tests, and GitHub CI that also boots the Docker image.
+- Version-pinned upstream documentation and optional coding-tool skills in `.agents/skills/`.
+
+## Prerequisites
+
+- **Node.js 24 LTS** (the supported production runtime; see `.node-version`).
+- **pnpm 12.3.4**, pinned in `package.json`. Install with `npm install --global pnpm@12.3.4`.
+- **Docker Engine with Compose v2** for the local PostgreSQL service, or your own PostgreSQL 18 instance.
+- Git; OpenSSL to generate a session secret (or another cryptographically secure generator).
+
+GitHub CLI (`gh`) with repository write access is needed only for publishing releases.
+The first install/build needs network access for packages and self-hosted font downloads.
+
+## Get started
 
 ```bash
-cp .env.example .env          # set NUXT_SESSION_PASSWORD
-pnpm install
-pnpm db:up && pnpm db:migrate && pnpm db:seed
+git clone https://github.com/foae/nuxtjs-template.git
+cd nuxtjs-template
+cp .env.example .env
+openssl rand -base64 32
+# Put the generated value in .env as NUXT_SESSION_PASSWORD.
+pnpm install --frozen-lockfile
+pnpm db:up
+pnpm db:migrate
+pnpm db:seed
 pnpm dev
 ```
 
-Seeded logins: `ada@example.com` / `grace@example.com`, password
-`correct-horse-battery-staple`.
+Open <http://localhost:3000>. The seed command **deletes existing posts and users**;
+run it only against a disposable development database, never production.
+Development logins are `ada@example.com` and `grace@example.com`, both with password
+`correct-horse-battery-staple`. These are public fixtures, not production credentials.
 
-Agent instructions live in [`CLAUDE.md`](./CLAUDE.md).
+### Configuration
 
-## Stack
+`.env.example` documents the supported settings:
 
-| Layer | Choice | Why this one |
-|---|---|---|
-| Framework | Nuxt 4.5, universal SSR | Pages render from Postgres per request |
-| UI | Nuxt UI v4 + Tailwind v4 | 125+ components, and a **first-party agent skill** |
-| Database | Postgres 18 + Drizzle | Schema is plain TypeScript — real types via LSP, no opaque generated client; migrations are readable SQL |
-| Validation | Zod 4 in `shared/` | One schema drives server validation *and* the UI form |
-| Auth | nuxt-auth-utils | Password **and** one-click Google/GitHub, sealed-cookie sessions, no codegen step to forget |
-| Tests | Vitest + Playwright | Unit ~1s; e2e covers the flows units can't reach |
-| Deploy | Nitro `node-server` + Docker | No vendor lock-in, no edge-runtime caveats |
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string, read by the app and migration tools |
+| `NUXT_SESSION_PASSWORD` | Random session-sealing secret, at least 32 characters |
+| `POSTGRES_PORT` | Optional local Compose port override; update `DATABASE_URL` to match |
+| `DATABASE_POOL_MAX` | Optional connection limit per process; account for every replica |
+| `NUXT_OAUTH_GOOGLE_CLIENT_ID`, `NUXT_OAUTH_GOOGLE_CLIENT_SECRET` | Optional Google sign-in |
+| `NUXT_OAUTH_GITHUB_CLIENT_ID`, `NUXT_OAUTH_GITHUB_CLIENT_SECRET` | Optional GitHub sign-in |
 
-Deliberately **not** included: `@nuxt/image`, `@nuxtjs/seo`, `@vueuse/nuxt` —
-a minimal template shouldn't ship modules its reference app never exercises.
-The "Deliberately not installed" table in [`CLAUDE.md`](./CLAUDE.md) names the
-exact package to reach for when each need becomes real.
+Register OAuth callbacks as `http://localhost:3000/auth/google` or
+`http://localhost:3000/auth/github` locally, and the corresponding HTTPS URLs in production.
+Provider buttons appear only when their client IDs are configured.
 
-## What makes it agent-first
+Keep machine/deployment-specific material in `.private/` or `.env` files; both are
+Git-ignored and excluded from Docker builds. Never put real secrets in examples,
+release notes or committed files. Ignoring a file does not remove it from Git history.
+Production secrets should come from your deployment platform's secret store.
 
-Choosing "LLM-friendly" libraries is the easy half, and the least important.
-What actually matters is that mistakes get *caught mechanically*:
-
-- **`pnpm verify`** — one command, ~35s, no database required: typecheck, lint,
-  unit tests, a migration-freshness check, and a vendored-docs-pinned check.
-  CI runs the same command.
-- **TypeScript only, and type-aware linting where it pays.** `allowJs` is off in
-  all four type contexts, so a stray `.js` cannot slip in. `no-floating-promises`
-  catches a forgotten `await` on a database write — a silent no-op that
-  `typecheck` accepts and that returns 200 having written nothing.
-- **Migration-freshness check** — editing `schema.ts` without generating a
-  migration still typechecks, so it would otherwise surface at deploy time.
-  `verify` generates the migration and fails, telling you to review and commit.
-- **Schema-drift test** — convention-driven, so it covers new resources for
-  free: it discovers every `*CreateSchema` and checks its field names against
-  its table — every field names a real column, no field is server-owned, and
-  every required-without-default column is covered. It does not compare Zod
-  types, nullability, or refinements, so it's a name-level check, not a type
-  check. Renaming a column fails a test, and adding a table with no wire
-  contract fails until you write one or record why it doesn't need one.
-- **Session-shape test** — the hand-written session type augmentation is
-  checked against what `setUserSession()` actually stores.
-- **`pnpm db:reset`** — restores a deterministic database state unattended, so
-  an agent can verify data-dependent work without a human in the loop.
-- **`.logs/dev-errors.jsonl`** — runtime errors as greppable JSON, so an agent
-  reads its own failures instead of asking for a pasted stack trace.
-- **Vendored, version-pinned docs** — `pnpm docs:sync` mirrors the Nuxt docs
-  from the git tag matching your *installed* Nuxt, so they cannot drift ahead
-  of your lockfile. `pnpm skills:sync` does the same for the Nuxt UI skill.
-- **No MCP servers.** Component APIs are read from `node_modules` (~500 tokens
-  per component, version-exact) rather than a docs page (~7K tokens, tracks
-  latest). Nothing sits resident in context every session.
-- **Harness-agnostic, not Claude-specific.** Skills live in `.agents/skills/` —
-  the vendor-neutral [Agent Skills](https://agentskills.io) location that pi and
-  OpenCode load natively — with `.claude/skills` symlinked there for Claude
-  Code. One copy, three harnesses, nothing to drift.
-
-## Make it yours
-
-The default look is deliberately not the Nuxt UI docs default. Every knob
-that gives a project its own identity is in two files —
-`app/assets/css/main.css` (the `BRAND` block: colour scale, fonts, radius,
-content width) and `app/app.config.ts` (site name and tagline, which palette
-is `primary`, which grey is `neutral`, per-component defaults) — plus
-`public/favicon.svg`. `CLAUDE.md` → *Making it yours* has the table.
-
-## Layout
-
-```
-app/          Vue app — pages, components, composables, middleware
-server/
-  api/        HTTP handlers
-  database/   Drizzle schema, migrations, connection factory
-  utils/      auto-imported server helpers (db, logger, validate)
-  plugins/    Nitro plugins (error logging, security headers)
-shared/       imported by BOTH app and server — schemas, types
-docs/vendor/  vendored Nuxt docs, version-pinned (pnpm docs:sync)
-.agents/      agent skills, harness-agnostic — nuxt-page is hand-written,
-  skills/     nuxt-ui is vendored (pnpm skills:sync). Generated files say so
-              in their own header. .claude/skills symlinks here.
-scripts/      seed, reset, verify, sync
-tests/        unit (fast, no DB) and e2e (Playwright)
-```
-
-## Deploying
+## Development and verification
 
 ```bash
-# 1. Run migrations as a separate step, before rolling out the app image.
-docker build --target migrate -t app-migrate .
-docker run --rm -e DATABASE_URL=... app-migrate
-
-# 2. Build and run the app image.
-docker build -t app .
-docker run -p 3000:3000 -e DATABASE_URL=... -e NUXT_SESSION_PASSWORD=... app
+pnpm verify                 # typecheck, lint, units, migration freshness, vendored manifests
+pnpm exec playwright install --with-deps chromium
+pnpm test:e2e               # production build + DB reset + browser/API tests
+pnpm build                  # production output in .output/
+pnpm preview                # preview the production build
 ```
 
-The container deliberately does not migrate on boot — that would race when
-more than one replica boots — so migrations run from the `migrate` target,
-which reuses the build stage's devDependencies and drizzle-kit instead of
-shipping them in the runtime image.
+`pnpm verify` needs no database. E2E requires the disposable local database and
+**resets its schema**. Stop the development server with Ctrl-C; stop PostgreSQL
+with `pnpm db:down` (the Docker volume remains).
 
-### Security headers: what the app sets vs. what your proxy must set
+After changing `server/database/schema.ts`, run `pnpm db:generate` and
+`pnpm db:migrate`, and commit the generated migration. `pnpm db:reset` drops,
+migrates and reseeds the local schema. Runtime diagnostics are in
+`.logs/dev-errors.jsonl`; redaction is best-effort, so treat logs as private.
 
-The app serves a conservative baseline itself (`nuxt.config.ts` route rules):
-`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
-`Permissions-Policy` — and strips the `X-Powered-By` fingerprint. Two headers
-are deliberately left to the reverse proxy / ingress, because they depend on
-deployment facts a template cannot know:
+### Repository layout
 
-- **HSTS** — set it where TLS terminates, or it is a promise the app cannot
-  keep.
-- **CSP** — needs a per-project script/style inventory; a generic policy
-  either breaks the app or protects nothing.
+| Path | Contents |
+|---|---|
+| `app/` | Vue pages, layouts, components and client composables |
+| `server/api/`, `server/routes/` | HTTP endpoints and OAuth callbacks |
+| `server/database/` | Schema, connection factory and migrations |
+| `server/utils/`, `server/plugins/` | Validation, sessions, logging and server helpers |
+| `shared/` | Wire schemas and types shared across client/server |
+| `scripts/` | Database, verification, upstream sync and release tooling |
+| `tests/` | Unit and end-to-end tests |
+| `docs/vendor/`, `.agents/skills/` | Pinned framework docs and optional development skills |
 
-`tests/e2e/security.spec.ts` asserts the app-owned baseline, so a regression
-fails CI.
+[`CLAUDE.md`](./CLAUDE.md) documents implementation contracts and release rules;
+`AGENTS.md` is a symlink to that same file. `.claude/skills` similarly links to
+`.agents/skills`. These are functional integrations, not authorship credits.
+Do not hand-edit generated mirrors: use `pnpm docs:sync` / `pnpm skills:sync`.
 
-### Auth scope
+Change the site name/theme in `app/app.config.ts`, the brand palette/fonts/radius
+in `app/assets/css/main.css`, and the favicon in `public/`.
 
-Email + password, plus one-click Google and GitHub sign-in — a provider's
-button shows up only once its `NUXT_OAUTH_*` credentials are set (see
-`.env.example`), and accounts are linked by *verified* email. Sessions are a
-sealed cookie. Login and registration have basic in-process rate limiting,
-which is per-replica and resets on restart (`server/utils/rate-limit-core.ts`
-documents what to replace it with before scaling out). There is no password
-reset, email verification for password sign-ups, or session revocation —
-`CLAUDE.md` lists the exact boundaries before you build on it.
+## Deployment
+
+Run migrations separately before rolling out the application. Create a private
+`.private/production.env` with the real database URL and session secret; do not
+use the local Compose credentials or seed production.
+
+```bash
+docker build --target migrate -t app-migrate .
+docker run --rm --env-file .private/production.env app-migrate
+docker build -t app .
+docker run --rm -p 127.0.0.1:3000:3000 --env-file .private/production.env app
+```
+
+The database hostname must be reachable **from the container**; `localhost` there
+is not your host database. The default Docker target is the non-root app runtime;
+`migrate` is a separate target. For a non-container deployment, run
+`node .output/server/index.mjs` with production environment variables supplied.
+
+Place an HTTPS reverse proxy in front of the app. The app sets basic security
+headers; configure HSTS at TLS termination and a project-specific CSP at the proxy.
+Back up your database and plan migration rollback before deployment.
+
+### Security boundaries
+
+This is a starter, not a complete identity platform. It has no password reset,
+password-signup email verification, session revocation or disabled-account check.
+Sessions expire after 30 days; deleting an account does not invalidate its cookie.
+Rate limits are in-process and reset on restart: replace them with shared state
+before scaling across replicas. OAuth accounts link only through verified email.
+Review these boundaries before using the template for sensitive data.
+
+## Dependencies
+
+Updates use stable releases that satisfy the complete toolchain. Current exceptions:
+TypeScript remains on 6.x because typescript-eslint excludes 7.x and vue-tsc depends
+on the removed compiler API ([evidence](docs/decisions/typescript-7.md)); Vitest stays
+on 4.x because `@nuxt/test-utils` requires `^4.0.2`; `@types/node` stays on 24.x to
+match production. Vue packages are pinned together in `pnpm-workspace.yaml` to
+prevent duplicate-runtime hydration failures. Recheck overrides with `pnpm audit`.
+
+The upstream Nuxt CLI dependency `@bomb.sh/tab` still declares a `cac` 6 peer
+while the resolved tree uses 7 (`pnpm peers check` reports it). Builds, development
+startup and the integration suite pass; shell-completion compatibility is not
+verified. This is not hidden with an override.
+
+## Releases
+
+The template follows Semantic Versioning: `package.json` is the version source,
+and stable releases use immutable, annotated `vMAJOR.MINOR.PATCH` Git tags.
+Vendored framework/skill versions remain independently versioned.
+`private: true` in the package manifest prevents accidental npm publication; it
+has no effect on GitHub visibility.
+
+For each release-worthy change (including documentation/configuration), from a
+clean `main` checkout:
+
+```bash
+pnpm release:prepare 1.0.1   # choose the next patch/minor/major as appropriate
+# Write accurate release notes in .private/release-notes.md.
+pnpm verify
+pnpm test:e2e
+git add package.json        # also stage the intended source/docs changes
+git commit -m "Release v1.0.1"
+git push origin main
+# Wait for CI on this exact commit, not an earlier green run.
+pnpm release:publish "Describe this release" .private/release-notes.md
+```
+
+Commit implementation changes before `release:prepare`, which requires a clean tree.
+The publisher checks the exact remote commit and successful, non-skipped
+verify/e2e/Docker CI jobs, creates and pushes an annotated tag without replacing
+any existing tag, publishes a stable non-draft GitHub release, and verifies it.
+If publishing fails after tagging, inspect the existing tag/release and finish
+that release manually with `gh`; never delete or move a published tag to retry.
+A version bump ensures even documentation-only releases run the full CI gates.
 
 ## Licence
 
-MIT. Vendored Nuxt documentation under `docs/vendor/nuxt/` is MIT, © Nuxt team.
+MIT; see [LICENSE](LICENSE). Vendored Nuxt documentation retains its upstream
+MIT/Nuxt team attribution. Functional generated-file provenance is preserved.

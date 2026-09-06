@@ -111,8 +111,8 @@ jobs:
         with:
           persist-credentials: false
 
-      # pnpm/setup (pnpm's recommended action for pnpm 11+) installs pnpm from
-      # the version pinned in package.json#packageManager, installs Node, and
+      # pnpm/setup installs the version pinned in package.json#packageManager,
+      # installs Node, and
       # runs `pnpm install --frozen-lockfile` — one step instead of three.
       - name: Install pnpm, Node and dependencies
         uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0

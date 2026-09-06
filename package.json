@@ -1,5 +1,6 @@
 {
   "name": "nuxtjs-template",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -23,13 +24,15 @@
     "db:seed": "tsx --env-file-if-exists=.env scripts/seed.ts",
     "db:reset": "tsx --env-file-if-exists=.env scripts/db-reset.ts",
     "docs:sync": "tsx --env-file-if-exists=.env scripts/docs-sync.ts",
-    "skills:sync": "tsx --env-file-if-exists=.env scripts/skills-sync.ts"
+    "skills:sync": "tsx --env-file-if-exists=.env scripts/skills-sync.ts",
+    "release:prepare": "tsx scripts/release.ts prepare",
+    "release:publish": "tsx scripts/release.ts publish"
   },
   "engines": {
     "node": ">=24"
   },
   "dependencies": {
-    "@iconify-json/lucide": "^1.2.127",
+    "@iconify-json/lucide": "^1.2.129",
     "@iconify-json/simple-icons": "^1.2.94",
     "@nuxt/ui": "^4.11.0",
     "consola": "^3.4.2",
@@ -41,7 +44,7 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@adonisjs/hash": "^9.1.1",
+    "@adonisjs/hash": "^10.1.1",
     "@nuxt/eslint": "^1.17.0",
     "@nuxt/test-utils": "^4.2.0",
     "@playwright/test": "^1.62.1",
@@ -49,11 +52,11 @@
     "@vue/test-utils": "^2.5.0",
     "drizzle-kit": "^0.31.10",
     "eslint": "^10.9.1",
-    "happy-dom": "^20.12.0",
-    "tsx": "^4.23.12",
+    "happy-dom": "^20.13.2",
+    "tsx": "^4.23.13",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11",
     "vue-tsc": "^3.3.11"
   },
-  "packageManager": "pnpm@11.25.0"
+  "packageManager": "pnpm@12.3.4"
 }
