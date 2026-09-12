@@ -50,7 +50,9 @@ Beyond the Nuxt preset, the rules that will actually stop you are
 `app/ server/ shared/` via the project service, `scripts/ tests/` via
 `tsconfig.tools.json`), plus `eqeqeq`, `prefer-template`, `object-shorthand`
 and `no-console` — log through `logger` on the server or `consola` in
-scripts, never `console`. The type-aware pass is why lint takes ~15s rather
+scripts, never `console`. In `app/**/*.vue`, `vue/no-restricted-class` rejects
+raw Tailwind palette colours (`text-green-500`, `bg-[#fff]`) — see **Making it
+yours**. The type-aware pass is why lint takes ~15s rather
 than ~3s; it is also the only thing that catches a forgotten `await` on a
 write. See rule 14.
 
@@ -330,7 +332,15 @@ identity should never take more than those:
 Do not scatter brand values into components: a page that hard-codes
 `text-green-500` breaks the moment `primary` changes. Use the semantic
 classes (`text-primary`, `bg-elevated`, `text-muted`, …) that Nuxt UI derives
-from these knobs.
+from these knobs. Lint enforces this: `vue/no-restricted-class` in
+`eslint.config.mjs` fails any `class`/`:class` in `app/**/*.vue` that names a
+palette colour with a shade (`text-red-500`, `dark:bg-zinc-900/50`,
+`border-brand-200`) or an arbitrary colour (`bg-[#1a1a1a]`). It reads static
+attributes and object/array/template-literal bindings only — a ternary inside
+`:class`, a class string built in `<script>`, or a `:ui` prop object slips
+past it, so those still need a reviewer. A component that genuinely needs a
+different default everywhere belongs in `app.config.ts` → `ui.<component>`,
+which is exempt on purpose.
 
 ---
 

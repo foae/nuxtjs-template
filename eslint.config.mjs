@@ -82,6 +82,35 @@ export default withNuxt(
   },
 
   /**
+   * Theme discipline: no raw Tailwind palette colours in templates.
+   *
+   * The whole design is driven by a handful of tokens (`ui.colors` in
+   * app/app.config.ts, the BRAND block in app/assets/css/main.css). A page
+   * that writes `text-green-500` or `bg-[#1a1a1a]` is a spot those tokens
+   * cannot reach, and the day `primary` changes it is the one element that
+   * keeps the old colour. Use the semantic classes Nuxt UI derives from the
+   * tokens instead: `text-primary`, `bg-elevated`, `text-muted`,
+   * `border-default`, `text-error` — and `ui.<component>` in app.config.ts
+   * when a component needs a different default everywhere.
+   *
+   * Covers `class="…"` and `:class` (object, array, template literal) in
+   * templates. It does NOT see class strings inside `<script>` or `ui` prop
+   * objects — those still need a reviewer.
+   */
+  {
+    files: ['app/**/*.vue'],
+    rules: {
+      'vue/no-restricted-class': ['error',
+        // palette utilities with a numeric shade, any variant prefix, optional
+        // opacity: `text-red-500`, `dark:hover:bg-zinc-900/50`, `border-t-brand-200`
+        String.raw`/^(?:[\w-]+:)*(?:text|bg|border|ring|outline|from|to|via|fill|stroke|divide|placeholder|caret|accent|shadow|decoration|inset-ring|ring-offset)(?:-[xysetblr])?-(?:red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|slate|gray|zinc|neutral|stone|brand)-\d{2,3}(?:\/\d+)?$/`,
+        // arbitrary colour values: `bg-[#fff]`, `text-[rgb(…)]`, `border-[oklch(…)]`
+        String.raw`/^(?:[\w-]+:)*(?:text|bg|border|ring|outline|from|to|via|fill|stroke|divide|shadow)(?:-[xysetblr])?-\[(?:#|rgba?\(|hsla?\(|oklch\(|oklab\()/`
+      ]
+    }
+  },
+
+  /**
    * TypeScript-only project.
    *
    * `allowJs` is off (nuxt.config.ts and tsconfig.tools.json), so a stray `.js`
