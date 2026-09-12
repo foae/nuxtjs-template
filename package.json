@@ -32,9 +32,9 @@
     "node": ">=24"
   },
   "dependencies": {
-    "@iconify-json/lucide": "^1.2.129",
-    "@iconify-json/simple-icons": "^1.2.94",
-    "@nuxt/ui": "^4.11.0",
+    "@iconify-json/lucide": "^1.2.130",
+    "@iconify-json/simple-icons": "^1.2.95",
+    "@nuxt/ui": "^4.11.1",
     "consola": "^3.4.2",
     "drizzle-orm": "^0.45.2",
     "nuxt": "^4.5.2",
@@ -46,17 +46,17 @@
   "devDependencies": {
     "@adonisjs/hash": "^10.1.1",
     "@nuxt/eslint": "^1.17.0",
-    "@nuxt/test-utils": "^4.2.0",
-    "@playwright/test": "^1.62.1",
-    "@types/node": "^24.13.3",
+    "@nuxt/test-utils": "^4.3.2",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^24.13.4",
     "@vue/test-utils": "^2.5.0",
     "drizzle-kit": "^0.31.10",
-    "eslint": "^10.9.1",
-    "happy-dom": "^20.13.2",
+    "eslint": "^10.10.0",
+    "happy-dom": "^20.14.0",
     "tsx": "^4.23.13",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.11",
+    "vitest": "^5.0.0",
     "vue-tsc": "^3.3.11"
   },
-  "packageManager": "pnpm@12.3.4"
+  "packageManager": "pnpm@12.4.1"
 }

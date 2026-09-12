@@ -4,7 +4,7 @@
 
 The upstream SKILL.md says to use the Nuxt UI MCP server for props, slots and
 events. **This project ships no MCP server on purpose.** Use these instead —
-both are version-exact for the installed @nuxt/ui (4.11.0) and far cheaper
+both are version-exact for the installed @nuxt/ui (4.11.1) and far cheaper
 in context than a docs page:
 
 | You need | Read | Cost |
