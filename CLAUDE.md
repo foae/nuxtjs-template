@@ -32,6 +32,11 @@ The project deliberately tracks small changes too, overriding upstream's
 suggestion to skip them. Leave tasks unassigned unless a human owner is known;
 do not put machine names or model identities in the template.
 
+The board columns, in order, are **To Do, In Progress, Blocked, In Review,
+Done**. New tickets default to `To Do` and use `TASK-123` identifiers (the
+existing `task_prefix: "task"` setting). Keep this neutral template prefix;
+derived projects may deliberately customize it.
+
 1. Search before creating: `pnpm backlog search "topic" --plain`; inspect
    relevant tasks with `pnpm backlog task view TASK-1 --plain`.
 2. Create or update the task with the user's intent and observable acceptance
@@ -39,11 +44,22 @@ do not put machine names or model identities in the template.
 3. Mark it `In Progress`, research the current code, and record the plan with
    `pnpm backlog task edit TASK-1 --plan "..."` before changing code.
 4. Record decisions, blockers and verification evidence via `--append-notes`.
-   Check acceptance criteria only when proven; write `--final-summary` and set
-   `--status Done` only after the task's acceptance criteria and project
-   verification gates pass. Never claim publication before it happens.
-5. Commit task updates alongside the corresponding implementation. Do not
-   archive completed work; keep it visible as `Done` until deliberate cleanup.
+   Move stalled work to `Blocked`, recording the blocker and the stage to
+   resume when it clears. Waiting for review belongs in `In Review`, not
+   `Blocked`, unless an actual impediment prevents review.
+5. After implementation and local verification, move every ticket to
+   `In Review`, including small fixes and documentation changes. Assess the
+   change against its acceptance criteria and resolve review findings;
+   review depth may vary with risk, but the review stage is never skipped.
+6. Check acceptance criteria only when proven. Agents may write
+   `--final-summary` and set `--status Done` without mandatory human approval
+   only after verification and review pass and the implementation has landed
+   on `main` (merged, or committed directly when that workflow is authorized).
+   Keep the ticket `In Review` until then. Release publication is a separate
+   gate, not a prerequisite for `Done`; never claim publication prematurely.
+7. Commit task updates alongside the corresponding implementation. Because
+   `Done` follows integration, commit that final status update afterward.
+   Do not archive completed work; keep it visible until deliberate cleanup.
 
 Use CLI commands for task creation and updates, never hand-edit Backlog's
 Markdown records. `pnpm backlog <command> --help` describes accepted flags;

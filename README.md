@@ -127,8 +127,19 @@ pnpm backlog:browser                      # http://127.0.0.1:6420; Ctrl+C to sto
 ```
 
 Track every requested repository change, even a small fix, in `.backlog/`.
-Search first, record acceptance criteria and the implementation plan, then
-capture verification evidence before checking criteria and marking `Done`.
+New tickets use `TASK-123` identifiers and start in `To Do`. The board columns
+are `To Do`, `In Progress`, `Blocked`, `In Review` and `Done`, in that order.
+Search first, record acceptance criteria and the implementation plan, and
+capture verification evidence. Move stuck work to `Blocked` with a note
+identifying the blocker and the stage to resume.
+
+Every ticket passes through `In Review` after implementation and local
+verification, including small fixes and documentation changes. Agents may
+mark it `Done` once checks and review pass and the implementation has landed
+on `main`; no mandatory human approval is required. Commit the final status
+update after integration. Release publication is tracked separately and does
+not delay `Done`. These are workflow rules for contributors, not automated
+transition guards in the Backlog CLI.
 Use `pnpm backlog instructions overview` and its creation/execution/finalization
 guides for the full CLI workflow; `pnpm backlog <command> --help` lists flags.
 Use the CLI, not hand-edited task Markdown. Commit task updates with the work.
