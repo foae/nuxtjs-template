@@ -16,7 +16,7 @@ sign-in, shared Zod validation, and development guidance for humans and coding t
 ## Prerequisites
 
 - **Node.js 24 LTS** (the supported production runtime; see `.node-version`).
-- **pnpm 12.3.4**, pinned in `package.json`. Install with `npm install --global pnpm@12.3.4`.
+- **pnpm 12.4.2**, pinned in `package.json`. Install with `npm install --global pnpm@12.4.2`.
 - **Docker Engine with Compose v2** for the local PostgreSQL service, or your own PostgreSQL 18 instance.
 - Git; OpenSSL to generate a session secret (or another cryptographically secure generator).
 
@@ -140,8 +140,8 @@ Review these boundaries before using the template for sensitive data.
 
 Updates use stable releases that satisfy the complete toolchain. Current exceptions:
 TypeScript remains on 6.x because typescript-eslint excludes 7.x and vue-tsc depends
-on the removed compiler API ([evidence](docs/decisions/typescript-7.md)); Vitest stays
-on 4.x because `@nuxt/test-utils` requires `^4.0.2`; `@types/node` stays on 24.x to
+on the removed compiler API ([evidence](docs/decisions/typescript-7.md)); Vitest is on
+5.x (`@nuxt/test-utils` accepts `^4.0.2 || ^5.0.0`); `@types/node` stays on 24.x to
 match production. Vue packages are pinned together in `pnpm-workspace.yaml` to
 prevent duplicate-runtime hydration failures. Recheck overrides with `pnpm audit`.
 

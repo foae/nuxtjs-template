@@ -5,6 +5,20 @@ allowBuilds:
   unrs-resolver: false
   vue-demi: false
 
+# Exact releases approved for the 2026-09-19 refresh; keep the general age gate.
+minimumReleaseAgeExclude:
+  - '@types/node@24.13.6'
+  - vue@3.5.43
+  - '@vue/compiler-core@3.5.43'
+  - '@vue/compiler-dom@3.5.43'
+  - '@vue/compiler-sfc@3.5.43'
+  - '@vue/compiler-ssr@3.5.43'
+  - '@vue/reactivity@3.5.43'
+  - '@vue/runtime-core@3.5.43'
+  - '@vue/runtime-dom@3.5.43'
+  - '@vue/server-renderer@3.5.43'
+  - '@vue/shared@3.5.43'
+
 # Two copies of Vue in one bundle break hydration at runtime with an opaque
 # "Cannot read properties of null (reading 'ce')" and a blank 500 page — the
 # SSR HTML is correct, only the client crashes, which makes it hard to trace.
@@ -15,12 +29,12 @@ allowBuilds:
 # NOTE: pnpm 11 no longer reads `pnpm.overrides` from package.json — overrides
 # live here. Putting them in package.json fails silently with only a warning.
 overrides:
-  vue: 3.5.42
-  '@vue/runtime-core': 3.5.42
-  '@vue/runtime-dom': 3.5.42
-  '@vue/shared': 3.5.42
-  '@vue/server-renderer': 3.5.42
-  '@vue/compiler-sfc': 3.5.42
+  vue: 3.5.43
+  '@vue/runtime-core': 3.5.43
+  '@vue/runtime-dom': 3.5.43
+  '@vue/shared': 3.5.43
+  '@vue/server-renderer': 3.5.43
+  '@vue/compiler-sfc': 3.5.43
 
   # Security advisories. Every one of these is a TRANSITIVE dependency — none
   # appears in package.json — so there is nothing to bump directly and an
