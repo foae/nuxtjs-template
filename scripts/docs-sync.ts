@@ -1,5 +1,5 @@
 /**
- * Mirrors the Nuxt documentation into `docs/vendor/nuxt/`, pinned to the
+ * Mirrors the Nuxt documentation into `_vendor/nuxt/`, pinned to the
  * exact Nuxt version this project has installed.
  *
  *   pnpm docs:sync
@@ -29,7 +29,7 @@ import { writeManifest } from './manifest'
 // This package is ESM ("type": "module"), so `require` does not exist.
 const require = createRequire(import.meta.url)
 
-const OUT_DIR = resolve('docs/vendor/nuxt')
+const OUT_DIR = resolve('_vendor/nuxt')
 const EXCLUDE = ['6.bridge', '7.migration']
 
 function installedNuxtVersion(): string {
@@ -105,7 +105,7 @@ async function main() {
     await mkdir(OUT_DIR, { recursive: true })
 
     // --strip-components=2 drops the `nuxt-<version>/docs/` prefix so paths
-    // read as `docs/vendor/nuxt/1.getting-started/...`.
+    // read as `_vendor/nuxt/1.getting-started/...`.
     execFileSync('tar', [
       'xzf', tarball,
       '-C', OUT_DIR,
@@ -148,7 +148,7 @@ https://github.com/nuxt/nuxt/blob/main/LICENSE
     await writeManifest(OUT_DIR)
 
     consola.success(
-      `Mirrored ${files} files (${(bytes / 1024).toFixed(0)} KB) for Nuxt ${version} -> docs/vendor/nuxt/`
+      `Mirrored ${files} files (${(bytes / 1024).toFixed(0)} KB) for Nuxt ${version} -> _vendor/nuxt/`
     )
   } finally {
     rmSync(tmp, { recursive: true, force: true })

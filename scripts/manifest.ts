@@ -1,5 +1,5 @@
 /**
- * Content manifests for generated trees (`docs/vendor/nuxt/`,
+ * Content manifests for generated trees (`_vendor/nuxt/`,
  * `.agents/skills/nuxt-ui/`).
  *
  * `pnpm verify`'s "vendored docs pinned" check only compares each tree's

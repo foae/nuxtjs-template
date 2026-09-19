@@ -13,7 +13,9 @@ dist
 
 # Vendored agent material — useful to a human or an agent, dead weight in a
 # production image.
-docs/vendor
+_vendor
+_docs
+.backlog
 .claude
 .agents
 AGENTS.md

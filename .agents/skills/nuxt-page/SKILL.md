@@ -24,7 +24,7 @@ likely. `[id].vue` beside `[id]/edit.vue` turns `[id].vue` into a *parent* that
 must render `<NuxtPage/>`, which is a confusing failure — the reference slice
 uses `posts/[id]/index.vue` for exactly this reason.
 
-Depth: `rg "pages directory" docs/vendor/nuxt/` (vendored, version-pinned).
+Depth: `rg "pages directory" _vendor/nuxt/` (vendored, version-pinned).
 
 ## 2. Put it in the main menu
 

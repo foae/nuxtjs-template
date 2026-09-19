@@ -234,6 +234,9 @@ importers:
       '@vue/test-utils':
         specifier: ^2.5.1
         version: 2.5.1(@vue/compiler-dom@3.5.43)(@vue/server-renderer@3.5.43)(vue@3.5.43(typescript@6.0.3))
+      backlog.md:
+        specifier: 1.52.0
+        version: 1.52.0
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
@@ -2376,6 +2379,40 @@ packages:
     peerDependenciesMeta:
       react-native-b4a:
         optional: true
+
+  backlog.md-darwin-arm64@1.52.0:
+    resolution: {integrity: sha512-iWV2ZEna6qnxlZTU6ySbeiJHm7y9ppKwunWeiWXPGu8O/HJ1L5E4fC22MNo3KDIlPJI7rtpAX8BZe/0w/PxKKg==}
+    cpu: [arm64]
+    os: [darwin]
+
+  backlog.md-darwin-x64@1.52.0:
+    resolution: {integrity: sha512-tyWoAKb3rcv1F9iZxL2TZG4ju+gnnzky2XMRVZRieZIp/R2SeLApNejYz+phvoGQD/JlH6xt1gkUudGuKzSOMg==}
+    cpu: [x64]
+    os: [darwin]
+
+  backlog.md-linux-arm64@1.52.0:
+    resolution: {integrity: sha512-5UkejVNge5fH+TwOS6yzXgLzsaKVGUMLYjU0mTuO31o4ICazKi6sLOKn18VvobasZbEu30tqBZxt00iHYlKRVw==}
+    cpu: [arm64]
+    os: [linux]
+
+  backlog.md-linux-x64@1.52.0:
+    resolution: {integrity: sha512-JzoNgNanYNAYZy8SGO3JivzPq9e5yvr1eWhJv2jjz00O4LWm4HcRUkN2My0N1OY07Ti+EK+PAk6NIk8nFQPFdA==}
+    cpu: [x64]
+    os: [linux]
+
+  backlog.md-windows-arm64@1.52.0:
+    resolution: {integrity: sha512-j5Wa+UOcgeYBiAoeAIY1rbfEravOiLT8QldQvF4vVWKkQxfb4PG3wh2gNR6t6pCDcZ3Lj410P4O6NRO5gI3Lww==}
+    cpu: [arm64]
+    os: [win32]
+
+  backlog.md-windows-x64@1.52.0:
+    resolution: {integrity: sha512-/XtOkRltaaEHNTFDFG99oT92tF8gyimORP2e9sU5o2+hKNF4gFd30ii423Hm5J3F1uypJ8cBl3Lwex5OrTE+Hg==}
+    cpu: [x64]
+    os: [win32]
+
+  backlog.md@1.52.0:
+    resolution: {integrity: sha512-GIKgZmoGtIqekRLf9YzPkPqvZKkTen88UrSUv3ibNTLIDcpxY1oNZ5pBlBWmvO+T+2ZmLmT5csMJ+eTvlp4g+Q==}
+    hasBin: true
 
   balanced-match@1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
@@ -8069,6 +8106,33 @@ snapshots:
       postcss-value-parser: 4.2.0
 
   b4a@1.8.1: {}
+
+  backlog.md-darwin-arm64@1.52.0:
+    optional: true
+
+  backlog.md-darwin-x64@1.52.0:
+    optional: true
+
+  backlog.md-linux-arm64@1.52.0:
+    optional: true
+
+  backlog.md-linux-x64@1.52.0:
+    optional: true
+
+  backlog.md-windows-arm64@1.52.0:
+    optional: true
+
+  backlog.md-windows-x64@1.52.0:
+    optional: true
+
+  backlog.md@1.52.0:
+    optionalDependencies:
+      backlog.md-darwin-arm64: 1.52.0
+      backlog.md-darwin-x64: 1.52.0
+      backlog.md-linux-arm64: 1.52.0
+      backlog.md-linux-x64: 1.52.0
+      backlog.md-windows-arm64: 1.52.0
+      backlog.md-windows-x64: 1.52.0
 
   balanced-match@1.0.2: {}
 

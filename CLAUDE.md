@@ -10,12 +10,54 @@ checks when there were five).
 
 This file is a **map, not a manual**. It tells you where things live and which
 rules are not guessable. It deliberately does not restate Nuxt documentation —
-that is vendored in `docs/vendor/nuxt/`, pinned to the installed version — and
+that is vendored in `_vendor/nuxt/`, pinned to the installed version — and
 it hands off UI recipes to the skills listed below rather than inlining them.
 
 **Everything an agent must not get wrong lives in this file, not in a skill.**
 Skills are convenience, not a second source of truth: no rule is stored only in
 one, so this file alone is sufficient whatever harness you are.
+
+---
+
+## Task management — Backlog.md
+
+`.backlog/` is the durable source of truth for **every requested repository
+change**, including small fixes. Session checklists are temporary views, not
+replacements. Questions and read-only explanations do not require new tasks.
+
+Use the pinned CLI through `pnpm backlog`, not a global installation or a new
+MCP server. Before working, read `pnpm backlog instructions overview` and the
+matching `task-creation`, `task-execution`, or `task-finalization` guide.
+The project deliberately tracks small changes too, overriding upstream's
+suggestion to skip them. Leave tasks unassigned unless a human owner is known;
+do not put machine names or model identities in the template.
+
+1. Search before creating: `pnpm backlog search "topic" --plain`; inspect
+   relevant tasks with `pnpm backlog task view TASK-1 --plain`.
+2. Create or update the task with the user's intent and observable acceptance
+   criteria. Clarify material ambiguity with the user before implementing.
+3. Mark it `In Progress`, research the current code, and record the plan with
+   `pnpm backlog task edit TASK-1 --plan "..."` before changing code.
+4. Record decisions, blockers and verification evidence via `--append-notes`.
+   Check acceptance criteria only when proven; write `--final-summary` and set
+   `--status Done` only after the task's acceptance criteria and project
+   verification gates pass. Never claim publication before it happens.
+5. Commit task updates alongside the corresponding implementation. Do not
+   archive completed work; keep it visible as `Done` until deliberate cleanup.
+
+Use CLI commands for task creation and updates, never hand-edit Backlog's
+Markdown records. `pnpm backlog <command> --help` describes accepted flags;
+`--json` is available for programmatic task reads. Automatic commits, hook
+bypassing, cross-branch checks and remote operations are disabled. Explicit
+commit/push/release steps remain the owner's responsibility.
+
+`pnpm backlog:board` opens the terminal board; `pnpm backlog:browser` serves
+the board on `127.0.0.1:6420` without opening a browser. Stop it when finished;
+it is a development tool, not a deployable application service.
+
+Owned documentation belongs in `_docs/`, not Backlog's optional document or
+decision store. `_vendor/nuxt/` is generated upstream reference material.
+Keep credentials and private operational notes out of all tracked task files.
 
 ---
 
@@ -131,7 +173,7 @@ the rest are worth opening only when the task needs them:
 | adding a sign-in provider (Google, GitHub, …) | `server/routes/auth/google.get.ts` — copy it, see **Auth** below |
 | choosing or composing UI components | `.agents/skills/nuxt-ui/SKILL.md` + `references/` |
 | after a component's exact props | `node_modules/@nuxt/ui/dist/runtime/components/<Name>.vue.d.ts` |
-| after framework behaviour (Nuxt itself) | `docs/vendor/nuxt/` — 239 markdown files, **grep it on purpose** |
+| after framework behaviour (Nuxt itself) | `_vendor/nuxt/` — 239 markdown files, **grep it on purpose** |
 | **adding an API endpoint or a resource** | **Adding a resource** below — stays in this file |
 | **adding a resource owned by another** | **Relations and ownership** below — read it *first* |
 | **changing the database** | **Changing the database** below |
@@ -346,7 +388,7 @@ which is exempt on purpose.
 
 ## Searching this repo
 
-`docs/vendor/nuxt/` is 239 committed markdown files — deliberately committed
+`_vendor/nuxt/` is 239 committed markdown files — deliberately committed
 (grep is the cheapest lookup you have, version-pinned), but it **will drown
 your searches**: `useFetch` has single-digit hits in source and 153 in the
 mirror. Default to scoping searches to source, and search the docs only when
@@ -354,7 +396,7 @@ you actually want framework documentation:
 
 ```bash
 rg "useFetch" app server shared tests scripts   # source, scoped
-rg "shared directory" docs/vendor/nuxt/          # docs, on purpose
+rg "shared directory" _vendor/nuxt/          # docs, on purpose
 ```
 
 ---
@@ -453,7 +495,7 @@ These cost real debugging time. Do not "fix" them back.
     back to localhost — ECONNREFUSED inside the container while the database
     is plainly reachable. Any new runtime secret needs the same care.
 
-13. **`docs/vendor/**` and `.agents/skills/nuxt-ui/**` are generated. Editing
+13. **`_vendor/**` and `.agents/skills/nuxt-ui/**` are generated. Editing
     them destroys your work silently.** `pnpm docs:sync` and `pnpm skills:sync`
     delete and rewrite both trees, so an edit survives exactly until the next
     sync — and `pnpm verify` fails on it earlier than that: both trees carry a
@@ -491,7 +533,7 @@ These cost real debugging time. Do not "fix" them back.
 
 17. **CI skips prose-only changes, and "prose" is not "`.md`".** The `changes`
     job in `.github/workflows/ci.yml` runs the full suite unless *every*
-    changed file is a `.md` (or `LICENSE`) — but `docs/vendor/**` and
+    changed file is a `.md` (or `LICENSE`) — but `_vendor/**` and
     `.agents/skills/nuxt-ui/**` are excluded from that, because they are
     markdown that `pnpm verify` actively checks: every file in both is hashed
     into a `MANIFEST.sha256` (rule 13). ~255 of this repo's ~260 markdown
@@ -631,7 +673,7 @@ project actually needs one, these are the packages — no research required:
 
 TS 7 is the Go-native rewrite and it breaks typescript-eslint, vue-tsc AND
 Nuxt's generated `$fetch` types — three independent blockers, any one fatal
-(re-tested 2026-09-01; full evidence in `docs/decisions/typescript-7.md`).
+(re-tested 2026-09-01; full evidence in `_docs/decisions/typescript-7.md`).
 Re-test by bumping `typescript` and running `pnpm verify`; revert unless all
 three pass. 6.0.3 is the latest 6.x, so we are not behind.
 

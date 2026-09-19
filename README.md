@@ -95,7 +95,9 @@ migrates and reseeds the local schema. Runtime diagnostics are in
 | `shared/` | Wire schemas and types shared across client/server |
 | `scripts/` | Database, verification, upstream sync and release tooling |
 | `tests/` | Unit and end-to-end tests |
-| `docs/vendor/`, `.agents/skills/` | Pinned framework docs and optional development skills |
+| `_docs/` | Owned project/product documentation, including engineering decisions |
+| `_vendor/nuxt/`, `.agents/skills/` | Pinned framework docs and optional development skills |
+| `.backlog/` | Git-tracked Backlog.md configuration and task history |
 
 [`CLAUDE.md`](./CLAUDE.md) documents implementation contracts and release rules;
 `AGENTS.md` is a symlink to that same file. `.claude/skills` similarly links to
@@ -104,6 +106,42 @@ Do not hand-edit generated mirrors: use `pnpm docs:sync` / `pnpm skills:sync`.
 
 Change the site name/theme in `app/app.config.ts`, the brand palette/fonts/radius
 in `app/assets/css/main.css`, and the favicon in `public/`.
+
+### Task management
+
+[Backlog.md](https://github.com/MrLesk/Backlog.md) is installed at an exact version
+with the development dependencies. A normal `pnpm install --frozen-lockfile`
+is enough; no global install, MCP setup or repeat initialization is needed.
+On Linux, the pinned Backlog CLI requires glibc; it does not run directly on
+Alpine/musl. This restriction applies to development task tooling, not the
+application's Alpine-based production image.
+
+```bash
+pnpm backlog task list --plain
+pnpm backlog search "topic" --plain
+pnpm backlog task create "Describe the change" -d "Why it is needed" --ac "Observable outcome"
+pnpm backlog task view TASK-3 --plain       # use the ID returned by create
+pnpm backlog task edit TASK-3 --status "In Progress" --plan "Implementation steps"
+pnpm backlog:board                        # terminal board
+pnpm backlog:browser                      # http://127.0.0.1:6420; Ctrl+C to stop
+```
+
+Track every requested repository change, even a small fix, in `.backlog/`.
+Search first, record acceptance criteria and the implementation plan, then
+capture verification evidence before checking criteria and marking `Done`.
+Use `pnpm backlog instructions overview` and its creation/execution/finalization
+guides for the full CLI workflow; `pnpm backlog <command> --help` lists flags.
+Use the CLI, not hand-edited task Markdown. Commit task updates with the work.
+Automatic commits, remote operations and cross-branch checks are disabled;
+normal Git and release gates still apply. Do not store secrets in tasks.
+
+`_docs/` is reserved for owned project/product documentation, including
+`_docs/decisions/`. `_vendor/nuxt/` holds generated, version-pinned upstream
+reference material, not application docs. Do not use Backlog's optional
+document/decision store as a second documentation tree. All three directories
+are excluded from Docker build contexts; Backlog is development tooling only.
+When deriving a new project from this template, retain useful history or
+deliberately clean it up, and update `project_name` in `.backlog/config.yml`.
 
 ## Deployment
 
@@ -140,7 +178,7 @@ Review these boundaries before using the template for sensitive data.
 
 Updates use stable releases that satisfy the complete toolchain. Current exceptions:
 TypeScript remains on 6.x because typescript-eslint excludes 7.x and vue-tsc depends
-on the removed compiler API ([evidence](docs/decisions/typescript-7.md)); Vitest is on
+on the removed compiler API ([evidence](_docs/decisions/typescript-7.md)); Vitest is on
 5.x (`@nuxt/test-utils` accepts `^4.0.2 || ^5.0.0`); `@types/node` stays on 24.x to
 match production. Vue packages are pinned together in `pnpm-workspace.yaml` to
 prevent duplicate-runtime hydration failures. Recheck overrides with `pnpm audit`.

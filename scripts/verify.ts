@@ -30,7 +30,7 @@ const MIGRATIONS_DIR = 'server/database/migrations'
  * project does not have.
  */
 const VENDORED = [
-  { label: 'Nuxt docs', file: 'docs/vendor/nuxt/VERSION', pkg: 'nuxt', fix: 'pnpm docs:sync' },
+  { label: 'Nuxt docs', file: '_vendor/nuxt/VERSION', pkg: 'nuxt', fix: 'pnpm docs:sync' },
   { label: 'Nuxt UI skill', file: '.agents/skills/nuxt-ui/VERSION', pkg: '@nuxt/ui', fix: 'pnpm skills:sync' }
 ]
 

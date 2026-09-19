@@ -64,7 +64,7 @@ jobs:
           while IFS= read -r file; do
             [ -n "$file" ] || continue
             case "$file" in
-              docs/vendor/*|.agents/skills/nuxt-ui/*)
+              _vendor/*|.agents/skills/nuxt-ui/*)
                 # Markdown, but NOT prose as far as CI is concerned. Both trees
                 # are generated and every file in them is hashed into a
                 # MANIFEST.sha256 that `pnpm verify` checks
@@ -72,7 +72,7 @@ jobs:
                 # design — CLAUDE.md rule 13. Must come before the *.md arm.
                 code_changes="${code_changes}${file}"$'\n' ;;
               *.md|LICENSE)
-                ;; # prose: README, CLAUDE.md/AGENTS.md, docs/decisions, skills
+                ;; # prose: README, CLAUDE.md/AGENTS.md, _docs, .backlog tasks, skills
               *)
                 code_changes="${code_changes}${file}"$'\n' ;;
             esac

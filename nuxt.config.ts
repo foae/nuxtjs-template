@@ -73,7 +73,7 @@ export default defineNuxtConfig({
   //
   // There are FOUR type contexts and each needs saying separately: `tsConfig`
   // is app only, and the server one lives under `nitro`, not here
-  // (docs/vendor/nuxt/2.directory-structure/3.tsconfig.md). Setting only
+  // (_vendor/nuxt/2.directory-structure/3.tsconfig.md). Setting only
   // `tsConfig` leaves server/ still accepting JavaScript.
   typescript: {
     tsConfig: { compilerOptions: { allowJs: false } },
