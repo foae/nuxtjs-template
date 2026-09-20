@@ -25,12 +25,6 @@ useHead({
 })
 
 useSeoMeta({ description, ogTitle: siteTitle, ogDescription: description })
-
-// Resolved here, on every server render, so the flags are always in the
-// payload: `useState` only carries what the SERVER initialised, and a visitor
-// who lands on `/` and clicks "Sign in" reaches /login client-side, where the
-// private runtime config is empty and the buttons would silently vanish.
-useOAuthProviders()
 </script>
 
 <template>

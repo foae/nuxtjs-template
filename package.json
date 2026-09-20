@@ -18,7 +18,8 @@
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "nuxt build && playwright test",
+    "test:e2e": "nuxt build && playwright test && pnpm test:auth",
+    "test:auth": "tsx tests/auth/run.ts",
     "db:up": "docker compose up -d --wait postgres",
     "db:down": "docker compose down",
     "db:generate": "drizzle-kit generate",
@@ -35,19 +36,21 @@
     "node": ">=24"
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "3.1134.0",
+    "@better-auth/core": "1.7.5",
+    "@better-auth/sso": "1.7.5",
     "@iconify-json/lucide": "^1.2.133",
     "@iconify-json/simple-icons": "^1.2.96",
     "@nuxt/ui": "^4.11.1",
+    "better-auth": "1.7.5",
     "consola": "^3.4.2",
     "drizzle-orm": "^0.45.2",
     "nuxt": "^4.5.2",
-    "nuxt-auth-utils": "^0.5.30",
     "postgres": "^3.4.9",
     "tailwindcss": "^4.3.3",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@adonisjs/hash": "^10.1.1",
     "@nuxt/eslint": "^1.17.0",
     "@nuxt/test-utils": "^4.3.2",
     "@playwright/test": "^1.63.0",

@@ -6,7 +6,9 @@
 #   docker build -t app .
 #   docker run -p 3000:3000 \
 #     -e DATABASE_URL=postgres://... \
-#     -e NUXT_SESSION_PASSWORD=... app
+#     -e AUTH_BASE_URL=https://app.example.com -e AUTH_SECRET=... \
+#     -e AUTH_MAIL_TRANSPORT=ses -e AWS_REGION=eu-west-1 \
+#     -e AUTH_EMAIL_FROM=noreply@example.com app
 #
 # Migrations are NOT run at container start — that would race when more than
 # one replica boots. Run the `migrate` target as a separate deploy step
@@ -27,6 +29,7 @@ FROM base AS build
 
 # Manifests first so the install layer is cached until the lockfile changes.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches/ ./patches/
 # --ignore-scripts skips `postinstall` (nuxt prepare) — the source isn't here
 # yet. Install happens in THIS stage rather than a separate `deps` stage: a
 # node_modules copied across stages has different recorded settings, and the

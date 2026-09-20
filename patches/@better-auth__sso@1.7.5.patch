@@ -1,0 +1,112 @@
+diff --git a/dist/index-sM6JWXeV.d.mts b/dist/index-sM6JWXeV.d.mts
+index 2fe04042d5bf37bd1f8da2dda60190df6250ced6..6c801b486eec6274eb0435941c164fd67b98431c 100644
+--- a/dist/index-sM6JWXeV.d.mts
++++ b/dist/index-sM6JWXeV.d.mts
+@@ -318,6 +318,8 @@ interface SSOProviderMutationGuardContext {
+   database: DBTransactionAdapter;
+ }
+ interface SSOOptions {
++  /** Operator endpoint policy, separate from application redirect trust. May throw to deny public endpoints too. */
++  isTrustedOIDCEndpoint?: (providerId: string, url: string) => boolean;
+   /**
+    * Resolve a verified provider identity to a Better Auth user.
+    *
+@@ -1663,7 +1665,7 @@ declare function deriveSAMLServiceProviderPolicy(config: Pick<SAMLConfig, "spMet
+  * Derive the verified SAML identity-provider entity ID using the same metadata
+  * parsing and manual-configuration validation as SAML authentication.
+  */
+-declare function deriveSAMLIdentityProviderEntityID(config: SAMLConfig): string;
++declare function deriveSAMLIdentityProviderEntityID(config: SAMLConfig, validateEndpoint?: (url: string) => void): string;
+ //#endregion
+ //#region src/saml/timestamp.d.ts
+ interface TimestampValidationOptions {
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 5989b7213499593c256ffcb47cc3aee882916ac5..ea2dcfb81b21c8e7c9e47f5052b39e6ebe7400b4 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -420,8 +420,8 @@ function validateDiscoveryUrl(url, isTrustedOrigin) {
+ */
+ function validateOIDCEndpointUrl(name, endpoint, isTrustedOrigin) {
+ 	const parsed = parseURL(name, endpoint);
+-	if (isPublicRoutableHost(parsed.hostname)) return;
+-	if (isTrustedOrigin(parsed.toString())) return;
++	const trusted = isTrustedOrigin(parsed.toString());
++	if (isPublicRoutableHost(parsed.hostname) || trusted) return;
+ 	throw new DiscoveryError("discovery_private_host", `The ${name} URL (${parsed.toString()}) is not publicly routable: ${parsed.hostname}. If this is an internal IdP, add its origin to trustedOrigins.`, {
+ 		endpoint: name,
+ 		url: endpoint,
+@@ -1797,8 +1797,18 @@ function createIdP(config) {
+ * Derive the verified SAML identity-provider entity ID using the same metadata
+ * parsing and manual-configuration validation as SAML authentication.
+ */
+-function deriveSAMLIdentityProviderEntityID(config) {
+-	return createIdP(config).entityMeta.getEntityID();
++function deriveSAMLIdentityProviderEntityID(config, validateEndpoint) {
++	const metadata = createIdP(config).entityMeta;
++	if (validateEndpoint) {
++		assertSAMLServiceProviderMetadataPolicy(config);
++		for (const endpoint of Object.values(metadata.getSingleSignOnService() ?? {})) validateEndpoint(endpoint);
++		const logoutServices = metadata.getSingleLogoutService() ?? [];
++		for (const service of Array.isArray(logoutServices) ? logoutServices : [logoutServices]) {
++			validateEndpoint(service.location);
++		}
++		for (const endpoint of getSAMLPostAssertionConsumerServiceUrls(config.spMetadata?.metadata)) validateEndpoint(endpoint);
++	}
++	return metadata.getEntityID();
+ }
+ function escapeHtml(str) {
+ 	if (!str) return "";
+@@ -3695,7 +3705,7 @@ const signInSSO = (options) => {
+ 		if (provider.oidcConfig && body.providerType !== "saml") {
+ 			let config = provider.oidcConfig;
+ 			try {
+-				config = await ensureRuntimeDiscovery(provider.oidcConfig, provider.issuer, (url) => ctx.context.isTrustedOrigin(url));
++				config = await ensureRuntimeDiscovery(provider.oidcConfig, provider.issuer, (url) => options?.isTrustedOIDCEndpoint ? options.isTrustedOIDCEndpoint(provider.providerId, url) : ctx.context.isTrustedOrigin(url));
+ 			} catch (error) {
+ 				if (error instanceof DiscoveryError) throw mapDiscoveryErrorToAPIError(error);
+ 				throw error;
+@@ -3817,7 +3827,7 @@ async function handleOIDCCallback(ctx, options, providerId, stateData, parsedPro
+ 	let config = provider.oidcConfig;
+ 	if (!config) return redirectOIDCError("invalid_provider", "provider not found");
+ 	try {
+-		config = await ensureRuntimeDiscovery(config, provider.issuer, (url) => ctx.context.isTrustedOrigin(url));
++		config = await ensureRuntimeDiscovery(config, provider.issuer, (url) => options?.isTrustedOIDCEndpoint ? options.isTrustedOIDCEndpoint(provider.providerId, url) : ctx.context.isTrustedOrigin(url));
+ 	} catch (error) {
+ 		if (error instanceof DiscoveryError) return redirectOIDCError("discovery_failed", error.message);
+ 		return redirectOIDCError("discovery_failed", "unexpected_discovery_error");
+@@ -3871,7 +3881,7 @@ async function handleOIDCCallback(ctx, options, providerId, stateData, parsedPro
+ 			method: "POST",
+ 			body,
+ 			headers
+-		}, (url) => ctx.context.isTrustedOrigin(url));
++		}, (url) => options?.isTrustedOIDCEndpoint ? options.isTrustedOIDCEndpoint(provider.providerId, url) : ctx.context.isTrustedOrigin(url));
+ 		if (error) return redirectOIDCError("invalid_provider", getOIDCErrorDescription(error, "token_response_error"));
+ 		if (!data) throw new Error("Token endpoint returned an empty response");
+ 		return getOAuth2Tokens(data);
+@@ -3896,7 +3906,7 @@ async function handleOIDCCallback(ctx, options, providerId, stateData, parsedPro
+ 		const verified = await validateOIDCIdToken(tokenResponse.idToken, jwksEndpoint, {
+ 			audience: config.clientId,
+ 			issuer: provider.issuer
+-		}, (url) => ctx.context.isTrustedOrigin(url)).catch((error) => {
++		}, (url) => options?.isTrustedOIDCEndpoint ? options.isTrustedOIDCEndpoint(provider.providerId, url) : ctx.context.isTrustedOrigin(url)).catch((error) => {
+ 			if (error instanceof DiscoveryError) return redirectOIDCError("invalid_provider", error.message);
+ 			ctx.context.logger.error(error);
+ 			return null;
+@@ -3907,7 +3917,7 @@ async function handleOIDCCallback(ctx, options, providerId, stateData, parsedPro
+ 	}
+ 	if (options?.resolveUser && !verifiedIdToken) return redirectOIDCError("invalid_provider", "id_token_required_for_user_resolution");
+ 	if (config.userInfoEndpoint) {
+-		const userInfoResponse = await fetchOIDCEndpoint("userInfoEndpoint", config.userInfoEndpoint, { headers: { Authorization: `Bearer ${tokenResponse.accessToken}` } }, (url) => ctx.context.isTrustedOrigin(url)).catch((e) => {
++		const userInfoResponse = await fetchOIDCEndpoint("userInfoEndpoint", config.userInfoEndpoint, { headers: { Authorization: `Bearer ${tokenResponse.accessToken}` } }, (url) => options?.isTrustedOIDCEndpoint ? options.isTrustedOIDCEndpoint(provider.providerId, url) : ctx.context.isTrustedOrigin(url)).catch((e) => {
+ 			if (e instanceof DiscoveryError) return redirectOIDCError("invalid_provider", e.message);
+ 			throw e;
+ 		});
+@@ -4111,7 +4121,7 @@ async function bounceIfIdpInitiated(ctx, options, providerId) {
+ 	if (!provider?.oidcConfig?.allowIdpInitiated) return;
+ 	let config = provider.oidcConfig;
+ 	try {
+-		config = await ensureRuntimeDiscovery(config, provider.issuer, (url) => ctx.context.isTrustedOrigin(url));
++		config = await ensureRuntimeDiscovery(config, provider.issuer, (url) => options?.isTrustedOIDCEndpoint ? options.isTrustedOIDCEndpoint(provider.providerId, url) : ctx.context.isTrustedOrigin(url));
+ 	} catch (error) {
+ 		ctx.context.logger.error("IDP-initiated bounce skipped: OIDC discovery failed", {
+ 			providerId: provider.providerId,

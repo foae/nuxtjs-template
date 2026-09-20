@@ -54,6 +54,49 @@ describe('redact', () => {
     expect(JSON.stringify(out)).not.toContain('tok"')
     expect(out.ok).toBe('keep')
   })
+
+  it('retains sanitized Error diagnostics through nested causes', () => {
+    const database = Object.assign(new Error(`query rejected\nparams: ${EMAIL},${HASH}`), {
+      name: 'PostgresError',
+      code: '23505',
+      constraint_name: 'users_email_key',
+      parameters: [EMAIL, HASH],
+      password: HASH
+    })
+    database.stack = `PostgresError: query rejected\nparams: ${EMAIL},${HASH}`
+
+    const input = Object.assign(new Error('Sign-up rejected'), {
+      name: 'RegistrationError',
+      cause: database,
+      requestId: 'request-123',
+      sessionToken: 'outer-session-token'
+    })
+    input.stack = 'RegistrationError: Sign-up rejected'
+
+    const output = redact(input)
+    const cause = output.cause as unknown as Error & Record<string, unknown>
+
+    expect(output).toBeInstanceOf(Error)
+    expect(output).not.toBe(input)
+    expect(output.name).toBe('RegistrationError')
+    expect(output.message).toBe('Sign-up rejected')
+    expect(output.stack).toBe('RegistrationError: Sign-up rejected')
+    expect(output.requestId).toBe('request-123')
+    expect(output.sessionToken).toBe('***')
+    expect(cause).toBeInstanceOf(Error)
+    expect(cause).not.toBe(database)
+    expect(cause.name).toBe('PostgresError')
+    expect(cause.message).toContain('query rejected')
+    expect(cause.stack).toContain('PostgresError: query rejected')
+    expect(cause.code).toBe('23505')
+    expect(cause.constraint_name).toBe('users_email_key')
+    expect(cause.parameters).toBe('***')
+    expect(cause.password).toBe('***')
+    expect(JSON.stringify(output)).not.toContain(EMAIL)
+    expect(JSON.stringify(output)).not.toContain(HASH)
+    expect(cause.message).not.toContain(EMAIL)
+    expect(cause.stack).not.toContain(HASH)
+  })
 })
 
 describe('scrubErrorInPlace', () => {

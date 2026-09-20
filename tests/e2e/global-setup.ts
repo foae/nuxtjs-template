@@ -1,17 +1,33 @@
 /**
- * Runs once before the e2e suite: restore the database to its seeded state.
- *
- * Two tests deliberately mutate seeded rows — renaming post `…0101` is the
- * *point* of the PATCH regression test — so without this the suite passes on a
- * freshly reset database and fails on every run after, with a failure that
- * looks like a broken page rather than stale state. That is an expensive false
- * negative for an agent, which will go debugging its own change.
- *
- * `db:reset` refuses any non-local host, so this cannot touch a remote
- * database (see `scripts/db-reset.ts`).
+ * Runs once before the e2e suite: restore the explicit disposable database to
+ * its seeded state. `playwright.config.ts` rejects every target except an
+ * E2E_DATABASE_URL whose database name ends in `_e2e`.
  */
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
+import process from 'node:process'
+
+function e2eDatabaseUrl(): string {
+  const value = process.env.E2E_DATABASE_URL
+  if (!value) throw new Error('E2E_DATABASE_URL is required before the E2E database can be reset.')
+
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    throw new Error('E2E_DATABASE_URL must be a valid PostgreSQL connection URL.')
+  }
+
+  const database = decodeURIComponent(url.pathname).replace(/^\//, '')
+  if (!database.endsWith('_e2e') || database.includes('/')) {
+    throw new Error('E2E_DATABASE_URL must name a disposable database ending in "_e2e".')
+  }
+
+  return value
+}
 
 export default function globalSetup() {
-  execSync('pnpm db:reset', { stdio: 'inherit' })
+  execFileSync('pnpm', ['db:reset'], {
+    env: { ...process.env, DATABASE_URL: e2eDatabaseUrl() },
+    stdio: 'inherit'
+  })
 }

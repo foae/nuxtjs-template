@@ -1,15 +1,23 @@
 /**
  * Route middleware for pages that require a signed-in user.
- * Opt in per page:
  *
- *   definePageMeta({ middleware: 'auth' })
- *
- * This guards the *page*; it is not a security boundary. Every API route
- * still calls `requireUserSession(event)` on its own, because a client can
- * always call the API directly without ever loading the page.
+ * The auth-session plugin resolves the Better Auth session before SSR renders
+ * this guard and restores it from the payload on hydration. API handlers still
+ * authorize every request independently.
  */
-export default defineNuxtRouteMiddleware((to) => {
-  const { loggedIn } = useUserSession()
+export default defineNuxtRouteMiddleware(async (to) => {
+  const { fetch, loggedIn } = useAuthSession()
+  const nuxtApp = useNuxtApp()
+
+  // The global refresh covers public routes; await here so a revoked session
+  // cannot enter a protected route before that refresh settles.
+  if (import.meta.client && !(nuxtApp.isHydrating && nuxtApp.payload.serverRendered)) {
+    try {
+      await fetch()
+    } catch {
+      // `fetch` has already cleared stale client state.
+    }
+  }
 
   if (!loggedIn.value) {
     return navigateTo({ path: '/login', query: { redirect: to.fullPath } })

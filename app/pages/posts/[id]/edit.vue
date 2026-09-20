@@ -18,7 +18,7 @@ useSeoMeta({ title: 'Edit post' })
 
 const route = useRoute()
 const toast = useToast()
-const { user } = useUserSession()
+const { user } = useAuthSession()
 const id = route.params.id as string
 
 type Schema = z.output<typeof postUpdateSchema>

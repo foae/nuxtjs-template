@@ -19,21 +19,81 @@
  * `avatarUrl` in TypeScript is `avatar_url` in Postgres. Don't name columns by hand.
  */
 import { relations } from 'drizzle-orm'
-import { boolean, index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
+import { bigint, boolean, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
   id: uuid().primaryKey().defaultRandom(),
   email: text().notNull(),
   name: text().notNull(),
   avatarUrl: text(),
-  // scrypt hash from nuxt-auth-utils' `hashPassword()` (@adonisjs/hash).
-  // Nullable so an OAuth-only account can exist without one. NEVER select
-  // this into an API response — see server/utils/posts.ts for the pattern.
-  passwordHash: text(),
-  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow()
+  emailVerified: boolean().notNull().default(false),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date())
 }, t => [
   uniqueIndex('users_email_key').on(t.email)
 ])
+
+export const sessions = pgTable('sessions', {
+  id: uuid().primaryKey().defaultRandom(),
+  userId: uuid().notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: text().notNull(),
+  expiresAt: timestamp({ withTimezone: true }).notNull(),
+  ipAddress: text(),
+  userAgent: text(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow()
+}, t => [
+  uniqueIndex('sessions_token_key').on(t.token),
+  index('sessions_user_id_idx').on(t.userId)
+])
+
+export const accounts = pgTable('accounts', {
+  id: uuid().primaryKey().defaultRandom(),
+  userId: uuid().notNull().references(() => users.id, { onDelete: 'cascade' }),
+  accountId: text().notNull(),
+  providerId: text().notNull(),
+  password: text(),
+  accessToken: text(),
+  refreshToken: text(),
+  idToken: text(),
+  accessTokenExpiresAt: timestamp({ withTimezone: true }),
+  refreshTokenExpiresAt: timestamp({ withTimezone: true }),
+  scope: text(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow()
+}, t => [
+  uniqueIndex('accounts_provider_identity_key').on(t.providerId, t.accountId),
+  index('accounts_user_id_idx').on(t.userId)
+])
+
+export const verifications = pgTable('verifications', {
+  // Better Auth also stores deterministic, non-UUID SAML replay reservations here.
+  id: text().primaryKey(),
+  identifier: text().notNull(),
+  value: text().notNull(),
+  expiresAt: timestamp({ withTimezone: true }).notNull(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow()
+}, t => [index('verifications_identifier_idx').on(t.identifier)])
+
+export const rateLimits = pgTable('rate_limits', {
+  id: uuid().primaryKey().defaultRandom(),
+  key: text().notNull(),
+  count: integer().notNull(),
+  lastRequest: bigint({ mode: 'number' }).notNull()
+}, t => [uniqueIndex('rate_limits_key_key').on(t.key)])
+
+// Static operator configuration is authoritative. Public management is disabled.
+export const ssoProviders = pgTable('sso_providers', {
+  id: uuid().primaryKey().defaultRandom(),
+  issuer: text().notNull(),
+  oidcConfig: text(),
+  samlConfig: text(),
+  userId: uuid().references(() => users.id, { onDelete: 'cascade' }),
+  providerId: text().notNull(),
+  organizationId: text(),
+  domain: text().notNull()
+}, t => [uniqueIndex('sso_providers_provider_id_key').on(t.providerId)])
 
 export const posts = pgTable('posts', {
   id: uuid().primaryKey().defaultRandom(),

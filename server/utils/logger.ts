@@ -17,6 +17,8 @@ export const logger = consola.withTag('app')
 
 /**
  * Redacts obvious secrets before anything is written to a log or error file.
+ * Error objects retain sanitized name, message, stack and cause diagnostics;
+ * enumerable fields receive the same key- and value-based redaction as objects.
  * Not exhaustive — it covers connection strings, bearer tokens, any key whose
  * name looks sensitive, and the two database error shapes that carry user
  * input:
@@ -43,10 +45,32 @@ export function redact<T>(value: T): T {
         .replace(/(Key \([^)]*\)=\()[^)]*(\))/g, '$1***$2')
     }
     if (Array.isArray(input)) return input.map(v => walk(v, depth + 1))
+    if (input instanceof Error) {
+      const output = new Error(
+        typeof input.message === 'string' ? walk(input.message, depth + 1) as string : 'redacted error'
+      ) as Error & Record<string, unknown>
+
+      if (typeof input.name === 'string') output.name = walk(input.name, depth + 1) as string
+      if ('stack' in input) output.stack = typeof input.stack === 'string' ? walk(input.stack, depth + 1) as string : undefined
+
+      for (const [key, item] of Object.entries(input)) {
+        if (key === 'cause') continue
+        output[key] = SENSITIVE.test(key) || (DB_VALUE_PROPS as readonly string[]).includes(key)
+          ? '***'
+          : walk(item, depth + 1)
+      }
+
+      try {
+        if ('cause' in input) output.cause = walk((input as Error & { cause?: unknown }).cause, depth + 1)
+      } catch {
+        // An exotic `cause` getter cannot be safely read.
+      }
+      return output
+    }
     if (input && typeof input === 'object') {
       return Object.fromEntries(
-        Object.entries(input as Record<string, unknown>).map(([k, v]) =>
-          [k, SENSITIVE.test(k) ? '***' : walk(v, depth + 1)]
+        Object.entries(input as Record<string, unknown>).map(([key, item]) =>
+          [key, SENSITIVE.test(key) || (DB_VALUE_PROPS as readonly string[]).includes(key) ? '***' : walk(item, depth + 1)]
         )
       )
     }

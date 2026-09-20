@@ -1,10 +1,23 @@
 /**
  * End-to-end coverage of the vertical slice.
  *
- * Assumes a freshly seeded database (`pnpm db:reset`). The seed is
- * deterministic, so these tests reference seeded content by literal text.
+ * Assumes the explicit disposable E2E database has been seeded by global
+ * setup. The seed is deterministic, so these tests reference literal content.
  */
 import { expect, test } from '@playwright/test'
+import postgres from 'postgres'
+
+const databaseUrl = process.env.E2E_DATABASE_URL
+if (!databaseUrl) throw new Error('E2E_DATABASE_URL is required for E2E rate-limit cleanup.')
+const rateLimitDb = postgres(databaseUrl, { max: 1, onnotice: () => { } })
+
+test.beforeEach(async () => {
+  await rateLimitDb`DELETE FROM rate_limits`
+})
+
+test.afterAll(async () => {
+  await rateLimitDb.end()
+})
 
 const ADA = { email: 'ada@example.com', password: 'correct-horse-battery-staple' }
 

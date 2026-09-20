@@ -42,9 +42,12 @@ const SCHEMAS_DIR = fileURLToPath(new URL('../../shared/schemas', import.meta.ur
  * reason — this list is a decision record, not a mute button.
  */
 const TABLES_WITHOUT_A_WIRE_CONTRACT: Record<string, string> = {
-  // Accounts are created through shared/schemas/auth.ts (registerSchema),
-  // which is shaped by the auth flow rather than by the table.
-  users: 'created via registerSchema in shared/schemas/auth.ts'
+  users: 'created by Better Auth; app registration uses registerSchema',
+  accounts: 'Better Auth owns credential and provider identities',
+  sessions: 'Better Auth owns database-backed sessions',
+  verifications: 'Better Auth owns expiring one-time tokens',
+  rateLimits: 'Better Auth owns shared rate-limit counters',
+  ssoProviders: 'Better Auth plugin storage; HTTP provider management is disabled'
 }
 
 /**
@@ -210,10 +213,10 @@ describe('every table is accounted for', () => {
 })
 
 describe('response mapping', () => {
-  it('never leaks the password hash or email of a post author', async () => {
+  it('never leaks private user fields of a post author', async () => {
     const { toPostWithAuthor } = await import('../../server/utils/posts')
 
-    // Deliberately a FULL user row, secrets included: the queries now project
+    // Deliberately a FULL user row: the queries project
     // author columns away at SQL level, but the mapper must stay safe even if
     // a future query regresses to `with: { author: true }`. Typed as `User`
     // via a variable because the mapper's parameter is narrowed to the
@@ -224,8 +227,9 @@ describe('response mapping', () => {
       email: 'secret@example.com',
       name: 'Name',
       avatarUrl: null,
-      passwordHash: 'super-secret-hash',
-      createdAt: new Date(0)
+      emailVerified: false,
+      createdAt: new Date(0),
+      updatedAt: new Date(0)
     }
 
     const mapped = toPostWithAuthor({

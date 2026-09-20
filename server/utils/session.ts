@@ -1,28 +1,26 @@
-/**
- * The one place a session cookie is sealed.
- *
- * Every sign-in path (password login, registration, OAuth) goes through
- * `signInUser()` so the stored shape cannot drift between handlers.
- * `tests/unit/session-shape.test.ts` reads this file as TEXT and compares the
- * `user: { ... }` literal below against `shared/types/auth.d.ts`, so the fields
- * must stay written out inline — a shorthand `{ user }` or a spread makes the
- * test blind and it fails loudly rather than passing quietly. The same test
- * also asserts no other server file calls `setUserSession(`.
- */
-import type { H3Event } from 'h3'
-import type { User } from '../database/schema'
+import { createError, type H3Event } from 'h3'
+import { getAuth } from '../lib/auth'
 
-export async function signInUser(
-  event: H3Event,
-  user: Pick<User, 'id' | 'email' | 'name' | 'avatarUrl'>
-) {
-  await setUserSession(event, {
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      avatarUrl: user.avatarUrl
-    },
-    loggedInAt: new Date().toISOString()
-  })
+/** Database-backed sessions reflect revocation and current user state on every request. */
+export async function getUserSession(event: H3Event) {
+  const headers = new Headers()
+  if (event.headers.get('cookie')) headers.set('cookie', event.headers.get('cookie')!)
+  const result = await getAuth(useDb()).api.getSession({ headers })
+  return {
+    user: result
+      ? {
+          id: result.user.id,
+          email: result.user.email,
+          name: result.user.name,
+          avatarUrl: result.user.image ?? null,
+          emailVerified: result.user.emailVerified
+        }
+      : undefined
+  }
+}
+
+export async function requireUserSession(event: H3Event) {
+  const session = await getUserSession(event)
+  if (!session.user) throw createError({ statusCode: 401, message: 'Sign in required' })
+  return { user: session.user }
 }

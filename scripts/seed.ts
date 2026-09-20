@@ -6,21 +6,15 @@
  *   pnpm db:reset    # drop schema, re-migrate, re-seed
  */
 import process from 'node:process'
-import { Hash } from '@adonisjs/hash'
-import { Scrypt } from '@adonisjs/hash/drivers/scrypt'
+import { hashPassword } from 'better-auth/crypto'
 import { consola } from 'consola'
 import { createDb } from '../server/database/client'
-import { posts, users } from '../server/database/schema'
+import { accounts, posts, users } from '../server/database/schema'
 
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://app:app@localhost:5432/app'
 
 /** Every seeded account uses this password. Dev only — never seed production. */
 export const SEED_PASSWORD = 'correct-horse-battery-staple'
-
-// Mirrors nuxt-auth-utils' hashPassword(): @adonisjs/hash with the Scrypt
-// driver and default options. Its own helper can't be used here because it
-// calls useRuntimeConfig(), which only exists inside Nitro.
-const hasher = new Hash(new Scrypt({}))
 
 /** Stable ids — referenced directly in tests. Do not renumber. */
 export const SEED_IDS = {
@@ -38,11 +32,15 @@ async function main() {
     await db.delete(posts)
     await db.delete(users)
 
-    const passwordHash = await hasher.make(SEED_PASSWORD)
+    const password = await hashPassword(SEED_PASSWORD)
 
     await db.insert(users).values([
-      { id: SEED_IDS.ada, email: 'ada@example.com', name: 'Ada Lovelace', passwordHash },
-      { id: SEED_IDS.grace, email: 'grace@example.com', name: 'Grace Hopper', passwordHash }
+      { id: SEED_IDS.ada, email: 'ada@example.com', name: 'Ada Lovelace', emailVerified: true },
+      { id: SEED_IDS.grace, email: 'grace@example.com', name: 'Grace Hopper', emailVerified: true }
+    ])
+    await db.insert(accounts).values([
+      { userId: SEED_IDS.ada, accountId: SEED_IDS.ada, providerId: 'credential', password },
+      { userId: SEED_IDS.grace, accountId: SEED_IDS.grace, providerId: 'credential', password }
     ])
 
     await db.insert(posts).values([

@@ -2,7 +2,7 @@
 import type { PostWithAuthor } from '#shared/types/api'
 
 const route = useRoute()
-const { user } = useUserSession()
+const { user } = useAuthSession()
 
 /**
  * A 404 from the API must become a real 404 page, not an empty render.

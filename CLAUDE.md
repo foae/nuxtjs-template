@@ -125,7 +125,8 @@ catch a wrong rule in a handler, and it checks no types *inside* a contract —
 
 ```bash
 cp .env.example .env      # first run only; .env is gitignored, so a fresh clone has none
-pnpm db:up && pnpm db:reset          # Postgres + deterministic seed
+# Configure AUTH_BASE_URL, AUTH_SECRET, and AUTH_MAIL_TRANSPORT=capture for local use.
+pnpm db:up                         # use db:reset only for an explicitly disposable local database
 setsid pnpm dev & DEV_PID=$!         # background it — it never exits, and a
                                      # foreground run blocks you forever
 until curl -sf -o /dev/null localhost:3000/; do sleep 1; done   # wait for boot
@@ -141,15 +142,16 @@ Poll for readiness rather than sleeping a fixed number of seconds — cold boot
 time varies with machine and cache, and a `sleep` that is long enough today is
 a flaky failure tomorrow.
 
-The app is on `http://localhost:3000`. Authenticate with a cookie jar — the
-session is a sealed cookie, so a bare `curl` is always anonymous:
+The app is on `http://localhost:3000`. Use Better Auth's standard endpoints
+with a cookie jar; sessions are database-backed and a request without the
+session cookie is anonymous:
 
 ```bash
-curl -s -c /tmp/jar -X POST localhost:3000/api/auth/login \
+curl -s -c /tmp/jar -X POST localhost:3000/api/auth/sign-in/email \
   -H 'content-type: application/json' \
-  -d '{"email":"ada@example.com","password":"correct-horse-battery-staple"}'
+  -d '{"email":"you@example.com","password":"your-password"}'
 
-curl -s -b /tmp/jar localhost:3000/api/posts          # now signed in as Ada
+curl -s -b /tmp/jar localhost:3000/api/posts
 ```
 
 Three probes catch most of what `verify` cannot. Run the ones your change
@@ -165,11 +167,10 @@ could plausibly break:
 posts, so you can address seeded rows directly instead of scraping ids.
 
 When the behaviour is worth keeping, promote the probe rather than leaving it
-in your shell: `tests/e2e/security.spec.ts` is the API-level home (it already
-covers all three probes above with the caller identity in each test name,
-plus unique-race 409s, strict-PATCH 422s, rate limiting and headers) and
-`tests/e2e/posts.spec.ts` covers the browser flows — copy the matching shape.
-`pnpm test:e2e` reseeds itself, so it is repeatable.
+in your shell: `tests/e2e/security.spec.ts` is the API-level home and
+`tests/e2e/posts.spec.ts` covers browser flows — copy the matching shape.
+E2E needs an explicit `E2E_DATABASE_URL` naming a disposable `_e2e` database;
+it must never reset an existing `DATABASE_URL`.
 
 Unit test (`tests/unit/`) for a pure function — mapping, a schema, a helper.
 E2E (`tests/e2e/`) for anything that crosses HTTP or touches the database.
@@ -186,7 +187,7 @@ the rest are worth opening only when the task needs them:
 |---|---|
 | adding a page, route, or menu entry | `.agents/skills/nuxt-page/SKILL.md` |
 | changing the look — colours, fonts, radius, site name | **Making it yours** below — two files, nothing else |
-| adding a sign-in provider (Google, GitHub, …) | `server/routes/auth/google.get.ts` — copy it, see **Auth** below |
+| adding a sign-in provider (Google, GitHub, enterprise SSO) | `server/lib/auth.ts` — configure Better Auth; do not add a custom callback route |
 | choosing or composing UI components | `.agents/skills/nuxt-ui/SKILL.md` + `references/` |
 | after a component's exact props | `node_modules/@nuxt/ui/dist/runtime/components/<Name>.vue.d.ts` |
 | after framework behaviour (Nuxt itself) | `_vendor/nuxt/` — 239 markdown files, **grep it on purpose** |
@@ -232,14 +233,14 @@ markdown and self-contained.
 | Add an API endpoint | `server/api/` — file = route, `.get.ts`/`.post.ts` = method |
 | Add a resource that belongs to another | read **Relations and ownership** below first |
 | Add a server helper | `server/utils/` — **auto-imported across the server** |
-| Sign a user in | `signInUser()` in `server/utils/session.ts` — the **only** file allowed to call `setUserSession` (a unit test enforces it) |
-| Add an OAuth provider | `server/routes/auth/<provider>.get.ts` — copy `google.get.ts`; `server/utils/oauth.ts` does the linking |
+| Get the current signed-in user | `getAuth(useDb()).api.getSession()` through the server auth helper — do not read or mint cookies manually |
+| Add a social provider | `server/lib/auth.ts` — use Better Auth's supported provider configuration; email collisions fail closed and account linking stays disabled |
 | Change the database | `server/database/schema.ts`, then `pnpm db:generate` |
 | Add a wire contract (validation) | `shared/schemas/` — imported by both sides |
 | Add a shared type | `shared/types/` — auto-imported in app *and* server |
 | Add a script | `scripts/` — run with `tsx` |
-| Unit test | `tests/unit/` — fast, no DB. Cannot resolve `h3` (transitive dep, pnpm isolation): keep testable server logic in an import-free util — see `server/utils/rate-limit-core.ts` vs `rate-limit.ts` |
-| E2E test | `tests/e2e/` — needs a running DB; builds and reseeds itself |
+| Unit test | `tests/unit/` — fast, no DB. Keep pure server logic in an import-free helper when it needs isolated unit coverage |
+| E2E test | `tests/e2e/` — needs the explicit disposable `E2E_DATABASE_URL` ending in `_e2e`; it builds and resets only that database |
 
 ### Adding a resource
 
@@ -283,7 +284,7 @@ Reach for `readBody` plus a bare `.parse()` and that wiring is silently lost.
 | not signed in | `401` | `requireUserSession` throws this for you |
 | signed in, but not yours | `404` | never `403` — rule 10 |
 | unique-constraint clash | `409` | carry `data.errors` so the field shows it — and catch it at the WRITE too (`isUniqueViolation`), the pre-check SELECT cannot stop a concurrent request |
-| too many auth attempts | `429` | login counts only failures, registration counts all — `server/utils/rate-limit.ts` |
+| too many auth attempts | `429` | Better Auth database rate limits: sign-in/sign-up 3 per 10s, recovery 3 per 60s, then the 100 per 60s general budget |
 
 You do **not** need to write a drift test per resource.
 `tests/unit/schema-drift.test.ts` discovers every `*CreateSchema` in
@@ -462,10 +463,9 @@ These cost real debugging time. Do not "fix" them back.
    `import type` only when referencing `server/database/schema` from `shared/`
    — type imports are erased, value imports would ship drizzle to the browser.
 
-2. **Session type augmentation lives in `shared/types/auth.d.ts`**, not a root
-   `auth.d.ts`. Only `shared/**/*.d.ts` is included by all three generated
-   tsconfigs. A root file is invisible to the **server** context, so `user.id`
-   silently loses its type in `server/api/**`.
+2. **Better Auth owns sessions.** Use `/api/auth/get-session` (client) or
+   `getAuth(useDb()).api.getSession()` (server); do not mint cookies or add a
+   parallel session implementation.
 
 3. **Never prerender a database-backed route.** Prerendering runs at build
    time with no database. `nuxt.config.ts` has no prerender rules on purpose.
@@ -602,21 +602,22 @@ exhaustive: never log raw request bodies or credentials yourself.
 | `pnpm lint` / `lint:fix` | ESLint; `:fix` auto-fixes formatting, not logic rules |
 | `pnpm typecheck` | all four Nuxt contexts + `tsconfig.tools.json` |
 | `pnpm test` | unit tests (fast, no DB) |
-| `pnpm test:e2e` | Playwright — **builds first and resets the DB**, so it tests your actual change and is repeatable |
+| `pnpm test:e2e` | production build, Playwright and controlled auth fixtures; resets only dedicated `E2E_DATABASE_URL` ending in `_e2e` |
+| `pnpm test:auth` | controlled provider/mail/config regressions; requires an initialized disposable `E2E_DATABASE_URL` |
 | `pnpm docs:sync` | re-mirror Nuxt docs at the installed version |
 | `pnpm skills:sync` | re-vendor the Nuxt UI skill |
 | `pnpm release:prepare <version>` | bump the template's stable SemVer on clean main |
 | `pnpm release:publish "<title>" <notes-file>` | require exact-commit green CI, annotate/push an immutable tag, publish and verify the stable GitHub release |
 
 Database/runtime commands need a `.env` — it is gitignored, so a fresh clone
-has none. `cp .env.example .env` once; `DATABASE_URL` and a random, at least
-32-character `NUXT_SESSION_PASSWORD` are the two that matter. Verification
-and release tooling do not require `.env`.
+has none. `cp .env.example .env` once; configure `DATABASE_URL`,
+`AUTH_BASE_URL`, a random at-least-32-character `AUTH_SECRET`, and explicit
+`AUTH_MAIL_TRANSPORT` (normally `capture` locally). Production uses
+`AUTH_MAIL_TRANSPORT=ses`, `AWS_REGION`, and a verified `AUTH_EMAIL_FROM`.
 
-Seeded logins: `ada@example.com` / `grace@example.com`, password
-`correct-horse-battery-staple`. `scripts/seed.ts` exports `SEED_IDS` with the
-fixed UUIDs for both users and both posts (one published, one draft) — address
-seeded rows through it instead of scraping ids out of a list response.
+Development fixtures are disposable rather than deployed identities. There is
+no legacy password migration; retain UUID ownership in an existing deployed
+database instead of resetting it for an auth rollout.
 
 ---
 
@@ -695,44 +696,61 @@ three pass. 6.0.3 is the latest 6.x, so we are not behind.
 
 ### What the auth is — and deliberately is not
 
-Two ways in, both through nuxt-auth-utils and both ending in the same
-sealed session cookie:
+All authentication is Better Auth 1.7.5 behind `server/api/auth/[...all].ts`.
+The standard routes are `/api/auth/sign-in/email`, `/sign-up/email` (successful
+signup is `200`), `/sign-out`, `/get-session`, `/request-password-reset`,
+`/reset-password`, `/send-verification-email`, and `/verify-email`. Do not add
+parallel application auth endpoints or mint cookies yourself.
 
-- **Email + password** (`server/api/auth/login.post.ts`, `register.post.ts`),
-  with basic in-process rate limiting (per-IP; login counts only failed
-  attempts). That limiter is per-replica and resets on restart —
-  `server/utils/rate-limit-core.ts` says what must replace it before scaling
-  out.
-- **One-click OAuth** — Google and GitHub are wired
-  (`server/routes/auth/<provider>.get.ts`). A provider's button appears on
-  `/login` only when its `NUXT_OAUTH_<PROVIDER>_CLIENT_ID` is set
-  (`useOAuthProviders()` in `app/composables/` resolves the flags during SSR — booleans only, never the ids), so a fresh clone works with no
-  credentials. Accounts are **linked by email**, and only when the provider
-  says the email is verified — an unverified email is refused, because
-  linking on it lets anyone who can register that address at a provider take
-  over the account (`server/utils/oauth.ts`). To add a provider, copy
-  `google.get.ts` and swap the `defineOAuth<Provider>EventHandler`; the module
-  ships 40+.
+- **Email and password** grant immediate access after signup. Confirmation is
+  optional reminder mail, not a login prerequisite. A verification link is
+  accepted only in the browser session of the matching signed-in user; anonymous
+  or mismatched sessions are refused. Password recovery revokes all sessions
+  for that user.
+- **Google and GitHub** are optional when both corresponding
+  `AUTH_<PROVIDER>_CLIENT_ID` and `AUTH_<PROVIDER>_CLIENT_SECRET` are set.
+  Register their Better Auth callbacks as
+  `${AUTH_BASE_URL}/api/auth/callback/google` and
+  `${AUTH_BASE_URL}/api/auth/callback/github`.
+- **Enterprise SSO** is static operator JSON from `AUTH_SSO_CONFIG_FILE`, not
+  public management. Every provider has `providerId`, `label`, `domain`, and
+  exactly one native Better Auth `oidcConfig` or `samlConfig`; it authenticates
+  users only and does not provision organization roles. Register OIDC as
+  `${AUTH_BASE_URL}/api/auth/sso/callback/<providerId>` and SAML ACS as
+  `${AUTH_BASE_URL}/api/auth/sso/saml2/sp/acs/<providerId>`. SAML metadata is
+  `${AUTH_BASE_URL}/api/auth/sso/saml2/sp/metadata?providerId=<providerId>`.
 
-Every handler signs in through `signInUser()` (`server/utils/session.ts`),
-which is the only place `setUserSession` may be called —
-`tests/unit/session-shape.test.ts` checks both that and that the sealed
-shape matches `shared/types/auth.d.ts`.
+Account linking is disabled. A provider identity that collides with an email
+owned by a different provider is rejected; never create an implicit linking
+path. Sessions are database-backed for 30 days with cookie caching disabled,
+so every session resolves the current user row and user deletion cascades to
+sessions/accounts.
 
-There is **no** password reset, email verification for password sign-ups,
-session revocation or disabled-account check. Do not assume any of them exist
-because a login form does.
+Mail delivery is explicit. `AUTH_MAIL_TRANSPORT=ses` requires `AWS_REGION` and
+`AUTH_EMAIL_FROM`; verify the SES identity in that same region and use the AWS
+SDK default credential provider chain with least-privilege `ses:SendEmail`.
+Missing or invalid mail configuration stops auth startup. Any optional SES
+configuration set selected for the sender, or defaulted by the sender identity,
+must disable open and click tracking for authentication links. Local/test
+capture requires `AUTH_MAIL_TRANSPORT=capture`, writes private mode-`0600`
+messages under a mode-`0700` capture directory, and is forbidden in ordinary
+production. `AUTH_TEST_MODE=true` allows only a loopback production test origin.
+A successful authentication-mail response does not confirm delivery; monitoring
+must detect authentication-mail delivery failures, including mail errors and
+SES delivery/bounce events.
 
-Two consequences worth knowing before you build on it:
+`AUTH_BASE_URL` is one canonical origin (no path or credentials), HTTPS in
+production except that loopback test mode. Configure a proxy to preserve that
+public origin and `/api/auth/*` callback paths. `AUTH_BASE_URL` alone governs
+application redirect trust. Provider endpoint origins derived from validated
+static SSO configuration are trusted only for IdP transport, not application
+redirects; production requires HTTPS for every configured or discovered OIDC
+endpoint and SAML transport endpoint.
 
-- The session cookie is a bearer credential valid until it expires (30 days,
-  `session.maxAge` in `nuxt.config.ts` — the only bound, since nothing can
-  revoke it earlier). Deleting or disabling a user does **not** log them out,
-  and `user.name` in the session is
-  a snapshot from login, not the current row. Anything that must be current —
-  or revocable — has to be read from the database per request.
-- Authorisation is per-handler, by hand (`authorId === user.id`, see rule 9).
-  There is no policy layer. That scales to owner-scoped resources and stops
-  scaling the moment a resource is shared, nested under another user's row, or
-  scoped to an org — at which point the check belongs in one helper, not copied
-  into each handler.
+The auth handler starts with the direct socket-peer address. Set
+`AUTH_TRUSTED_PROXY_IPS` only to exact literal socket peers allowed to supply
+one `X-Real-IP` client address, and configure each listed proxy to replace that
+header. The handler overwrites `x-auth-client-ip` on every request with the
+authorized header value or socket-peer address; unlisted peers' `X-Real-IP`
+values are ignored. Better Auth rate limits are database-backed: general
+100/60s; sign-in and signup 3/10s; password recovery 3/60s.

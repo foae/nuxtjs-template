@@ -12,21 +12,25 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
 
 const { site } = useAppConfig()
-const { loggedIn, user, clear } = useUserSession()
+const { loggedIn, user, clear } = useAuthSession()
 const toast = useToast()
 
-// Extension point: add a page to the main menu by adding one entry here.
-// `to` is the route, `icon` is an `i-lucide-*` name. Entries can be gated
-// with `loggedIn` (e.g. `...(loggedIn.value ? [{ ... }] : [])`).
 const menu = computed<NavigationMenuItem[]>(() => [
-  { label: 'Posts', to: '/', icon: 'i-lucide-newspaper', exact: true }
+  { label: 'Posts', to: '/', icon: 'i-lucide-newspaper', exact: true },
+  ...(loggedIn.value
+    ? [{ label: 'Dashboard', to: '/dashboard', icon: 'i-lucide-layout-dashboard' }]
+    : [])
 ])
 
 async function logout() {
-  await $fetch('/api/auth/logout', { method: 'POST' })
-  await clear()
-  toast.add({ title: 'Signed out', color: 'neutral' })
-  await navigateTo('/')
+  try {
+    await $fetch('/api/auth/sign-out', { method: 'POST', body: {} })
+    clear()
+    toast.add({ title: 'Signed out', color: 'neutral' })
+    await navigateTo('/')
+  } catch {
+    toast.add({ title: 'Could not sign out', color: 'error' })
+  }
 }
 </script>
 

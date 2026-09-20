@@ -4,7 +4,12 @@ export default defineNuxtConfig({
     '@nuxt/eslint',
     '@nuxt/ui',
     '@nuxt/test-utils/module',
-    'nuxt-auth-utils'
+    (_options, nuxt) => {
+      // Vue 3.5.43 uses this hook to allocate hydration ID boundaries, even
+      // on the client. Nuxt 4.5's production pruning breaks form label IDs.
+      const client = nuxt.options.optimization.treeShake.composables.client
+      client.vue = client.vue?.filter(name => name !== 'onServerPrefetch') ?? []
+    }
   ],
 
   // Universal SSR. Pages render on the server from Postgres on every request.
@@ -23,12 +28,6 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // Server-only. Overridden by DATABASE_URL (see .env.example).
     databaseUrl: process.env.DATABASE_URL ?? '',
-    // Sealed session cookie TTL. There is no session revocation (see
-    // CLAUDE.md "What the auth deliberately is not"), so this bound is the
-    // only thing that ends a stolen or stale session.
-    session: {
-      maxAge: 60 * 60 * 24 * 30 // 30 days
-    },
     public: {}
   },
 
@@ -71,8 +70,9 @@ export default defineNuxtConfig({
   // by default in Nuxt 4 — this only closes the JS door.
   // eslint.config.mjs reports the same thing with a clearer message.
   //
-  // There are FOUR type contexts and each needs saying separately: `tsConfig`
-  // is app only, and the server one lives under `nitro`, not here
+  // Five projects: four generated Nuxt contexts plus tsconfig.tools.json.
+  // Each Nuxt context needs its own setting: `tsConfig` is app only,
+  // and the server one lives under `nitro`, not here
   // (_vendor/nuxt/2.directory-structure/3.tsconfig.md). Setting only
   // `tsConfig` leaves server/ still accepting JavaScript.
   typescript: {
