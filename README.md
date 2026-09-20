@@ -154,6 +154,7 @@ Production secrets should come from your deployment platform's secret store.
 ## Development and verification
 
 ```bash
+pnpm check app/pages/index.vue  # after edits: cached lint autofix + full typecheck and units
 pnpm verify                 # typecheck, lint, units, migration freshness, vendored manifests
 pnpm exec playwright install --with-deps chromium
 pnpm test:e2e               # production build + browser/API tests against E2E_DATABASE_URL
@@ -172,10 +173,24 @@ only after initializing the disposable `E2E_DATABASE_URL` schema. These
 fixtures use local transports and generated identities, not deployment
 credentials; they do not prove live provider configuration or SES delivery.
 
+`pnpm check <files>` writes ESLint autofixes only after validating every
+result's repository boundary, including symlinks discovered inside directories.
+With no paths it fixes the whole repository; empty arguments are rejected,
+and all-missing input explicitly skips lint. It is fast feedback, not a
+replacement for `pnpm verify`, whose lint is uncached to catch imported-type
+changes. Stop dev before check/typecheck/verify or builds, then restart before
+runtime probes: Nuxt typecheck regenerates the same `.nuxt` tree dev uses.
+The [Commands table in CLAUDE.md](CLAUDE.md#commands) is the complete script
+inventory; its [Fast feedback section](CLAUDE.md#fast-feedback) covers scoped
+commands and optional local hooks.
+
 After changing `server/database/schema.ts`, run `pnpm db:generate` and
 `pnpm db:migrate`, and commit the generated migration. `pnpm db:reset` is for
-a disposable local schema only. Runtime diagnostics are in `.logs/dev-errors.jsonl`;
-redaction is best-effort, so treat logs as private.
+a disposable local schema only. For background development, use the
+[captured-output recipe](CLAUDE.md#2-behavioural--run-the-thing-you-changed):
+startup/HMR output goes to `.logs/dev.log`, and request diagnostics to
+`.logs/dev-errors.jsonl`. Raw process output is not redacted; treat both logs
+as private.
 
 ### Repository layout
 

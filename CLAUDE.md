@@ -98,7 +98,7 @@ If it fails, fix it. Do not report success with a failing verify.
 `pnpm lint:fix` auto-fixes formatting and import order; it will not fix a
 logic rule for you.
 
-**This project is TypeScript only.** `allowJs` is off in all four type
+**This project is TypeScript only.** `allowJs` is off in all five type
 contexts, and a `.js`/`.jsx` file under `app/ server/ shared/ scripts/ tests/`
 fails lint with a message saying so. `eslint.config.mjs` is the one exception —
 ESLint loads flat config directly, so it cannot be TypeScript.
@@ -127,20 +127,49 @@ catch a wrong rule in a handler, and it checks no types *inside* a contract —
 cp .env.example .env      # first run only; .env is gitignored, so a fresh clone has none
 # Configure AUTH_BASE_URL, AUTH_SECRET, and AUTH_MAIL_TRANSPORT=capture for local use.
 pnpm db:up                         # use db:reset only for an explicitly disposable local database
-setsid pnpm dev & DEV_PID=$!         # background it — it never exits, and a
-                                     # foreground run blocks you forever
-until curl -sf -o /dev/null localhost:3000/; do sleep 1; done   # wait for boot
+( umask 077; mkdir -p .logs && chmod 700 .logs &&
+  touch .logs/dev.log .logs/dev.pgid && chmod 600 .logs/dev.log .logs/dev.pgid &&
+  : > .logs/dev.pgid ) || exit 1
+setsid sh -c 'printf "%s\n" "$$" > .logs/dev.pgid; exec pnpm dev' \
+  > .logs/dev.log 2>&1 &
+DEV_PGID=
+ready=0
+failure='was not ready after 60 seconds'
+deadline=$(( $(date +%s) + 60 ))
+while [ "$(date +%s)" -lt "$deadline" ]; do
+  if [ -z "$DEV_PGID" ] && [ -s .logs/dev.pgid ]; then
+    DEV_PGID=$(cat .logs/dev.pgid)      # the PID created by setsid is its group ID
+    rm -f .logs/dev.pgid
+  fi
+  if [ -n "$DEV_PGID" ]; then
+    if ! kill -0 -- "-$DEV_PGID" 2>/dev/null; then
+      failure='exited before readiness'
+      break
+    elif curl --max-time 1 -sf -o /dev/null localhost:3000/; then
+      ready=1
+      break
+    fi
+  fi
+  sleep 1
+done
+if [ "$ready" -ne 1 ]; then
+  printf 'dev server %s; last 100 log lines:\n' "$failure" >&2
+  [ -z "$DEV_PGID" ] || kill -TERM -- "-$DEV_PGID" 2>/dev/null || :
+  tail -n 100 .logs/dev.log >&2
+  exit 1
+fi
 ```
 
-Kill the whole process group (`kill -- -$DEV_PID`) when you are done probing —
-that is what `setsid` is for above. A bare `kill $DEV_PID` only kills the pnpm
-wrapper: the nuxt tree survives, keeps the port, and answers the *next*
-session's probes with *this* session's build while the new server exits with
-"Another Nuxt dev is already running".
+The readiness poll has a 60-second deadline, a one-second request timeout and
+a process-group liveness check. Its PID is kept in `DEV_PGID` for
+`kill -- -"$DEV_PGID"` cleanup; failure prints the last log lines rather than
+waiting forever. Run only one dev server against this port and log at a time.
 
-Poll for readiness rather than sleeping a fixed number of seconds — cold boot
-time varies with machine and cache, and a `sleep` that is long enough today is
-a flaky failure tomorrow.
+Read startup, Vite/Nitro and HMR output with `tail -n 100 .logs/dev.log`;
+do not use a blocking `tail -f` in an agent shell. This is raw process output,
+not the redacted Nitro error-hook log: keep it private. Harnesses with managed
+process tools can use those instead, retaining output and stopping the full
+process tree.
 
 The app is on `http://localhost:3000`. Use Better Auth's standard endpoints
 with a cookie jar; sessions are database-backed and a request without the
@@ -174,6 +203,72 @@ it must never reset an existing `DATABASE_URL`.
 
 Unit test (`tests/unit/`) for a pure function — mapping, a schema, a helper.
 E2E (`tests/e2e/`) for anything that crosses HTTP or touches the database.
+
+## Fast feedback
+
+Run **`pnpm check <files>` after each edit; `pnpm verify` before declaring
+done**. Quote literal route paths, for example
+`pnpm check 'app/pages/posts/[id]/edit.vue' scripts/check.ts`.
+The check command computes cached ESLint autofixes, validates every resulting
+real path, then **writes fixes to the supplied files**. Full typecheck and all
+unit tests still run if an earlier step fails. With no paths, ESLint fixes the
+whole repository and warns first; an explicitly empty path is rejected.
+Missing/deleted paths and files/directories with no ESLint targets warn and
+are skipped (an all-skipped selection reports lint as skipped, not passed).
+Outside-repository paths, including symlink targets discovered inside a
+directory, are refused before any source-file fixes. It does not check
+migrations or vendored manifests. Cached lint can miss changes to imported
+types, so it is never a substitute for the uncached gate.
+
+**Serialize Nuxt generation:** stop the dev server before `pnpm check`,
+`pnpm typecheck`, `pnpm verify`, preparation or builds; restart it before
+behavioural probes. Nuxt's typecheck command prepares the same `.nuxt` tree
+used by dev, so these are not independent read-only processes. Harness hooks
+must respect that lifecycle as well as serializing check invocations.
+
+These warm timings were measured on one downstream machine and are indicative,
+not performance guarantees:
+
+| Feedback needed | Command | Indicative warm time |
+|---|---|---|
+| One file's lint errors | `pnpm exec eslint '<file>'` | 2–4 s |
+| One unit test file | `pnpm exec vitest run tests/unit/redirect.test.ts` | 1 s |
+| All five TypeScript projects | `pnpm typecheck` | 5 s |
+| Tools/test types only | `pnpm exec tsc -p tsconfig.tools.json` | 2 s |
+| All unit tests | `pnpm test` | under 2 s |
+| Discover E2E tests without running/resetting | `pnpm exec playwright test --list` | under 1 s |
+
+E2E discovery still requires `E2E_DATABASE_URL` to name a dedicated disposable
+`_e2e` database. To run one named browser/API test, use
+**`pnpm build && pnpm exec playwright test -g "<name>"`** with that variable
+exported; it builds first and resets only the explicit test database.
+`pnpm test:e2e` also runs controlled provider/mail fixtures after Playwright;
+do not append Playwright options to that compound command. Direct Playwright
+execution without a fresh build can test stale `.output`; only discovery
+(`--list`) skips the build safely. The post-edit command runs all unit tests, not `vitest
+related`, because schema-drift tests discover files dynamically.
+
+**Language server:** useful for library-type hover, references and workspace
+symbol search, but advisory. The downstream investigation of the TypeScript
+language server **as wired into Claude Code's plugin** found `.ts` support
+only (not Vue SFCs), and stale open buffers after shell edits. Other clients
+may support Vue and synchronize disk changes correctly; do not generalize
+those plugin limitations. Reload/reopen when diagnostics are stale.
+`pnpm typecheck` is the authority for types; `pnpm verify` is the mechanical
+gate for done, alongside the behavioural checks above.
+
+### Wiring `pnpm check` into a harness
+
+Optional, unshipped examples: a Claude Code `PostToolUse` hook matching
+`Edit|Write` in gitignored `.claude/settings.local.json`, or an OpenCode
+user-local plugin handling `tool.execute.after` for edit/write tools, can run
+`pnpm check` with the changed file path. Follow the current
+[Claude hook](https://code.claude.com/docs/en/hooks) or
+[OpenCode plugin](https://opencode.ai/docs/plugins/) API for your client.
+Pass the path as a separate argument (never interpolate untrusted text into
+a shell command), serialize check runs, and surface the output to the agent.
+Hooks must account for `--fix` changing files again, and do not cover arbitrary
+shell edits. No harness hook or plugin configuration ships in this template.
 
 ---
 
@@ -244,9 +339,9 @@ markdown and self-contained.
 
 ### Adding a resource
 
-The **posts** slice is the reference implementation. Build in this order, and
-run `pnpm verify` after each step — a failure then names one file instead of
-eight:
+The **posts** slice is the reference implementation. Build in this order,
+running `pnpm check <changed-files>` after each step, then `pnpm verify` once
+at the end:
 
 | # | Step | Where | Watch for |
 |---|---|---|---|
@@ -531,15 +626,18 @@ These cost real debugging time. Do not "fix" them back.
     handler returns 200 and nothing is written. Don't drop the option to
     "simplify" the config.
 
-15. **There are four TypeScript contexts, configured in three different
-    places.** `typescript.tsConfig` is **app only**; `sharedTsConfig` and
-    `nodeTsConfig` sit beside it; the server one is `nitro.typescript.tsConfig`.
-    Set only the first and `server/` keeps the old setting with nothing
-    reporting a problem — which is how `allowJs` stayed true for `server/`
-    here until all four were checked. `tsconfig.tools.json` is a fifth,
-    hand-written config covering `scripts/` and `tests/`, which Nuxt's
-    generated project references do not reach. Verify a change with
-    `pnpm nuxt prepare`, then read `.nuxt/tsconfig.*.json`.
+15. **Five root TypeScript project references: four generated, one owned.**
+    The four Nuxt contexts are configured in three places:
+    `typescript.tsConfig` is **app only**; `sharedTsConfig` and `nodeTsConfig`
+    sit beside it; the server one is `nitro.typescript.tsConfig`. Set only
+    the first and `server/` keeps the old setting without reporting a problem.
+    `tsconfig.tools.json` covers root tooling, `scripts/` and `tests/`.
+    Keep it **last** in root `tsconfig.json`: its imports overlap `shared/`
+    and `server/database/`, which should resolve in their Nuxt projects first.
+    `nuxt typecheck` traverses all five in build mode; no separate `tsc -p`
+    pass is needed. Build metadata belongs in `node_modules/.cache/`.
+    Root `tsconfig.json` is owned, not generated. After changing Nuxt context
+    settings run `pnpm nuxt prepare`, then read `.nuxt/tsconfig.*.json`.
 
 16. **`@types/node` tracks Node 24 — the production runtime — not your local
     Node.** CI and the Docker image run 24 (LTS); types pinned to the oldest
@@ -589,19 +687,31 @@ exhaustive: never log raw request bodies or credentials yourself.
 
 ## Commands
 
+This is the complete inventory of `package.json` scripts; README keeps only
+the getting-started subset.
+
 | Command | What it does |
 |---|---|
+| `pnpm check [files...]` | cached ESLint **autofix** (whole repository with no paths), full typecheck + all units; post-edit feedback, not the gate |
 | `pnpm verify` | **typecheck + lint + test + migration freshness + vendored docs pinned (VERSION + content manifest)** |
 | `pnpm verify:full` | verify + production build — for changes that could affect the build/deploy path; plain `verify` never builds |
-| `pnpm dev` | dev server on `:3000` — **long-running, background it** (`pnpm dev &`) |
+| `pnpm dev` | dev server on `:3000` — long-running; see the captured-output recipe above |
+| `pnpm build` | production build in `.output/` |
+| `pnpm preview` | preview the production build |
+| `pnpm postinstall` | Nuxt prepare lifecycle hook; generates `.nuxt/` after install |
+| `pnpm backlog` | pinned Backlog.md CLI |
+| `pnpm backlog:board` | terminal task board |
+| `pnpm backlog:browser` | local browser task board without auto-opening a browser |
 | `pnpm db:up` / `db:down` | start / stop Postgres (Docker) |
 | `pnpm db:generate` | create a migration after editing the schema |
 | `pnpm db:migrate` | apply migrations |
-| `pnpm db:seed` | deterministic seed (fixed UUIDs, see `scripts/seed.ts`) |
-| `pnpm db:reset` | drop → migrate → seed, unattended — **DROPs the schema**; refuses any host that isn't local |
-| `pnpm lint` / `lint:fix` | ESLint; `:fix` auto-fixes formatting, not logic rules |
-| `pnpm typecheck` | all four Nuxt contexts + `tsconfig.tools.json` |
+| `pnpm db:studio` | Drizzle Studio database browser |
+| `pnpm db:seed` | deterministic development fixtures only; never point it at deployed data |
+| `pnpm db:reset` | drop → migrate → seed, unattended — **DROPs the schema**; disposable local database only |
+| `pnpm lint` / `lint:fix` | uncached ESLint gate / cached whole-repository autofix; fixes mutate files |
+| `pnpm typecheck` | Nuxt build-mode typecheck across all five root project references |
 | `pnpm test` | unit tests (fast, no DB) |
+| `pnpm test:watch` | watch-mode unit tests (long-running) |
 | `pnpm test:e2e` | production build, Playwright and controlled auth fixtures; resets only dedicated `E2E_DATABASE_URL` ending in `_e2e` |
 | `pnpm test:auth` | controlled provider/mail/config regressions; requires an initialized disposable `E2E_DATABASE_URL` |
 | `pnpm docs:sync` | re-mirror Nuxt docs at the installed version |

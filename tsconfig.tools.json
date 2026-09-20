@@ -1,10 +1,7 @@
 {
-  // Nuxt's generated project references cover app/, server/, shared/ and
-  // nuxt.config only — root-level tooling files and tests/ fall through the
-  // gap and would be typechecked by nothing.
-  //
-  // Checked by `pnpm typecheck` as a separate pass:
-  //   tsc -p tsconfig.tools.json
+  // Fifth root project reference, checked by `nuxt typecheck` in build mode
+  // and discoverable by language servers. Keep it last: scripts and tests
+  // overlap the generated shared/server projects through their imports.
   "compilerOptions": {
     "target": "ESNext",
     "module": "Preserve",
@@ -16,6 +13,7 @@
     // nuxt.config.ts `typescript.tsConfig`). Scripts and tests are .ts too.
     "allowJs": false,
     "noEmit": true,
+    "tsBuildInfoFile": "./node_modules/.cache/tsconfig.tools.tsbuildinfo",
     "skipLibCheck": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,

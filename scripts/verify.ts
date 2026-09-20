@@ -194,7 +194,9 @@ async function checkVendoredDocsPinned(): Promise<boolean> {
 }
 
 run('typecheck', 'pnpm run typecheck', 'Fix the type errors above.')
-run('lint', 'pnpm run lint', 'Run `pnpm lint:fix` to auto-fix what can be fixed.')
+// Keep gate lint uncached: ESLint caches files, not their imported types.
+// Cached callers can hide new floating Drizzle thenables (CLAUDE.md rule 14).
+run('lint', 'pnpm run lint', 'Run `pnpm exec eslint . --fix --no-cache` to auto-fix what can be fixed.')
 run('test', 'pnpm run test', 'A failing schema-drift test means shared/schemas no longer matches the Drizzle schema.')
 checkMigrationsFresh()
 await checkVendoredDocsPinned()
@@ -213,7 +215,7 @@ if (failed.length > 0) {
     if (f.hint) consola.warn(`${f.name}: ${f.hint}`)
   }
   consola.error(`verify failed (${failed.length}/${results.length})`)
-  process.exit(1)
+  process.exitCode = 1
+} else {
+  consola.success(`verify passed (${results.length}/${results.length})`)
 }
-
-consola.success(`verify passed (${results.length}/${results.length})`)

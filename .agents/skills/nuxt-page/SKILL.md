@@ -99,12 +99,15 @@ useSeoMeta({ title: 'Reports', description: '…' })
 
 ## 6. Check it
 
-```bash
-pnpm verify                      # typecheck + lint + tests + migrations + docs pin
-pnpm db:up && pnpm db:reset      # needs .env — `cp .env.example .env` once
-pnpm dev &                       # background it: it never exits
-until curl -sf -o /dev/null localhost:3000/; do sleep 1; done   # wait for boot
+Run `pnpm check <changed-files>` after edits (it autofixes lint), then
+`pnpm verify` before declaring done. For the database and dev-server startup,
+use the **Done means two things**, half 2 recipe in `CLAUDE.md`: it captures
+startup/HMR output in `.logs/dev.log`, polls readiness and stops the full
+process group. Do not reset an existing database just to inspect a page.
 
+Once the server is ready:
+
+```bash
 # The page really renders — and server-side, not only after hydration.
 curl -s localhost:3000/reports | grep -q '<h1' && echo ok
 tail -5 .logs/dev-errors.jsonl | jq .    # your own server errors, greppable
