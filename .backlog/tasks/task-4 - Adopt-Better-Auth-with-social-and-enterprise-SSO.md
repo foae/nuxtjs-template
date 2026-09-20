@@ -1,10 +1,10 @@
 ---
 id: TASK-4
 title: Adopt Better Auth with social and enterprise SSO
-status: In Review
+status: Done
 assignee: []
 created_date: '2026-09-19 15:41'
-updated_date: '2026-09-20 10:34'
+updated_date: '2026-09-20 10:35'
 labels: []
 dependencies: []
 ordinal: 4000
@@ -130,3 +130,9 @@ Fresh default panel 20260920-095534-3733595 reconciled; review telemetry 761. Va
 
 Final authorized repair verification passed: pnpm verify completed all five checks with 60 unit tests; production pnpm test:e2e completed 25 Playwright tests followed by all controlled auth fixtures (25 startup/transport scenarios, SES, Google/GitHub, OIDC and SAML). Provider runner exited 0; wrong audience, expiry, replay, signature/state tampering and unsolicited responses refused. Disposable auth_e2e only; app database not reset. Normalized persisted registration, insert-race field errors, hashed reset identifiers, atomic rollback, cleanup isolation and provider configuration boundaries are covered. Review dispositions and reviewer scores already recorded (telemetry 761). Controlled fixtures are not live AWS or external-provider delivery. Review acceptance passes; preparing isolated authentication integration while retaining TASK-5 tooling changes separately.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Integrated on main as b596f54. Better Auth replaces legacy auth with database sessions, immediate-access password registration, optional email confirmation, atomic reset/session revocation preserving external identities, Google/GitHub and operator-managed OIDC/SAML, and explicit SES delivery. Reviewed fixes pass five verification checks, 60 current-worktree unit tests, 25 production browser/API tests and controlled provider/mail/configuration regressions. UUIDs and post ownership preserved through authorized migration. Live provider/AWS delivery remains deployment configuration, not claimed by fixtures. Stable release publication is the next independent gate; TASK-5 tooling changes remain uncommitted.
+<!-- SECTION:FINAL_SUMMARY:END -->
