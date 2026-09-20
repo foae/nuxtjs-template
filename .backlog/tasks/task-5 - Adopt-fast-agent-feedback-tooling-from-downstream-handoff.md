@@ -1,10 +1,10 @@
 ---
 id: TASK-5
 title: Adopt fast agent feedback tooling from downstream handoff
-status: In Review
+status: Done
 assignee: []
 created_date: '2026-09-20 08:03'
-updated_date: '2026-09-20 11:01'
+updated_date: '2026-09-20 11:04'
 labels: []
 dependencies: []
 ordinal: 5000
@@ -49,4 +49,12 @@ Blocker cleared with explicit owner authorization: staged only server/database/m
 Owner explicitly authorized Ship on main for end-to-end delivery on 2026-09-20, superseding prior no-commit/push/release restrictions. No unrelated changes are authorized.
 
 Final delivery review passed on 2026-09-20: inspected scoped lint compute-before-write containment, literal selection, skipped results, exit handling, five-project typecheck and uncached gate; prior panel findings are resolved. Fresh pnpm check on the three tooling/test files passed; pnpm check with an empty argument exited 1 while typecheck and all 60 tests still passed. Fresh pnpm verify passed all five gates. No additional source repairs required. Release target v2.1.0 for the compatible new pnpm check feature. E2E target is the configured distinct loopback app_e2e database.
+
+Implementation integrated on main as 331460e after acceptance review. v2.1.0 candidate verification passed all five gates and 60 unit tests. Full pnpm test:e2e passed: production build, 25 Playwright tests, 25 auth startup/transport scenarios, and controlled SES/social/OIDC/SAML regressions. Scoped package.json selection also correctly reported skipped lint while later checks passed. Existing generated head chunk warning at line 28028 remains non-fatal: Rollup discards a misplaced side-effect annotation; no source patch or dependency change warranted for this tooling task. Release publication remains gated on exact-commit remote CI.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Delivered safe scoped pnpm check tooling, five-project typechecking, cold final lint, regression coverage and canonical workflow documentation. Reviewed and integrated on main (331460e). Fresh CLI success/rejection/skipped probes, pnpm verify (5/5; 60 tests), production build, 25 Playwright tests and controlled authentication regressions pass. Release candidate: v2.1.0.
+<!-- SECTION:FINAL_SUMMARY:END -->
