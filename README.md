@@ -192,6 +192,39 @@ startup/HMR output goes to `.logs/dev.log`, and request diagnostics to
 `.logs/dev-errors.jsonl`. Raw process output is not redacted; treat both logs
 as private.
 
+### Fork checklist
+
+- Configure local auth/mail and database settings as above; E2E needs its own
+  disposable `_e2e` database. Never reuse deployed data for fixtures.
+- Make the aggregate **`ci`** check required in GitHub branch protection.
+  Workflow files do not configure that setting for a fork.
+- Activate Renovate for the fork; committing `renovate.json` does not install
+  or authorize the service.
+- After framework/UI upgrades, run `pnpm docs:sync` / `pnpm skills:sync`
+  and verify the regenerated, version-pinned mirrors.
+- Run `pnpm verify:full` for build/deployment changes, then exercise the
+  production surface; plain `verify` does not build or prove runtime behavior.
+
+Dependency auditing runs independently of quality verification. CI prints all
+advisories; high/critical findings and audit execution failures block integration.
+Lower severities are visible but non-blocking. Any exception must identify the
+advisory, rationale, owner and expiry in a tracked task and use a narrowly scoped
+pnpm exception; no permanent blanket ignores.
+
+### Nuxt mechanics versus template conventions
+
+Nuxt provides file-based pages/endpoints, auto-imports, server utilities, and
+SSR-aware `useFetch` / `useAsyncData`. `useAsyncData(() => $fetch(...))` is valid;
+the concern is bare setup-time `$fetch`, which can duplicate hydration requests.
+Route middleware controls navigation, not API authorization.
+
+This template chooses shared Zod contracts, `validateBody`/`validateParams`/
+`validateQuery`, `useApiForm`, explicit response mappers and 422/404 error
+contracts. They are project policies, not requirements imposed by Nuxt.
+The lint boundary/validation guards catch direct syntactic bypasses only:
+they do not prove transitive isolation, authorization or adequate validation.
+Prefer these existing patterns rather than adding controller/repository layers.
+
 ### Repository layout
 
 | Path | Contents |

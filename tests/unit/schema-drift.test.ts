@@ -213,15 +213,12 @@ describe('every table is accounted for', () => {
 })
 
 describe('response mapping', () => {
-  it('never leaks private user fields of a post author', async () => {
+  it('exposes exactly the public post and author shape', async () => {
     const { toPostWithAuthor } = await import('../../server/utils/posts')
 
-    // Deliberately a FULL user row: the queries project
-    // author columns away at SQL level, but the mapper must stay safe even if
-    // a future query regresses to `with: { author: true }`. Typed as `User`
-    // via a variable because the mapper's parameter is narrowed to the
-    // projection — an inline literal this wide would (correctly) fail TS
-    // excess-property checks, while a wider typed value stays assignable.
+    // Deliberately a FULL user row: queries project private author columns
+    // away at SQL level, but the mapper must remain safe if a future query
+    // regresses to `with: { author: true }`.
     const fullAuthorRow: User = {
       id: 'u1',
       email: 'secret@example.com',
@@ -244,8 +241,19 @@ describe('response mapping', () => {
       author: fullAuthorRow
     })
 
-    const serialised = JSON.stringify(mapped)
-    expect(serialised).not.toContain('super-secret-hash')
-    expect(serialised).not.toContain('secret@example.com')
+    expect(mapped).toStrictEqual({
+      id: 'p1',
+      title: 't',
+      slug: 's',
+      body: 'b',
+      published: true,
+      createdAt: '1970-01-01T00:00:00.000Z',
+      updatedAt: '1970-01-01T00:00:00.000Z',
+      author: {
+        id: 'u1',
+        name: 'Name',
+        avatarUrl: null
+      }
+    })
   })
 })

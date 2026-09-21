@@ -7,8 +7,8 @@ import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, rm } from 'node:fs/promises'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { APIRequestContext, PlaywrightWorkerArgs } from '@playwright/test'
-import { expect, test } from '@playwright/test'
 import postgres from 'postgres'
+import { expect, test } from './fixtures'
 
 const PORT = process.env.E2E_PORT ?? '3199'
 const BASE_URL = `http://localhost:${PORT}`
@@ -169,6 +169,46 @@ test('a non-owner cannot PATCH or DELETE another user\'s post: 404, not 403', as
   }
 })
 
+test('list and detail responses expose only the public post and author fields', async ({ playwright }) => {
+  const anon = await authContext(playwright)
+  try {
+    const listResponse = await anon.get('/api/posts')
+    expect(listResponse.status()).toBe(200)
+
+    const list = await listResponse.json()
+    expect(Object.keys(list).sort()).toEqual(['items', 'limit', 'offset', 'total'])
+    expect(list.items.length).toBeGreaterThan(0)
+    expect(Object.keys(list.items[0]).sort()).toEqual([
+      'author',
+      'body',
+      'createdAt',
+      'id',
+      'published',
+      'slug',
+      'title',
+      'updatedAt'
+    ])
+    expect(Object.keys(list.items[0].author).sort()).toEqual(['avatarUrl', 'id', 'name'])
+
+    const detailResponse = await anon.get(`/api/posts/${POST_HELLO}`)
+    expect(detailResponse.status()).toBe(200)
+
+    const detail = await detailResponse.json()
+    expect(Object.keys(detail).sort()).toEqual([
+      'author',
+      'body',
+      'createdAt',
+      'id',
+      'published',
+      'slug',
+      'title',
+      'updatedAt'
+    ])
+    expect(Object.keys(detail.author).sort()).toEqual(['avatarUrl', 'id', 'name'])
+  } finally {
+    await anon.dispose()
+  }
+})
 test('a typoed PATCH field is a 422, not a silent no-op', async ({ playwright }) => {
   const ada = await signedInContext(playwright, ADA)
   try {

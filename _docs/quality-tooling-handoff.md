@@ -2,7 +2,7 @@
 
 ## Status and purpose
 
-Recorded 2026-09-21 after a repository audit, cross-model second opinion, and user interview. Amended the same day after an independent second audit and a follow-up interview (see "Second audit" under the review record). **The improvements below are selected but not implemented.** This document is the requested deliverable; TASK-6 tracks writing it, not implementing the entire proposal.
+Recorded 2026-09-21 after a repository audit, cross-model second opinion, and user interview. Amended the same day after an independent second audit and a follow-up interview (see "Second audit" under the review record). **The selected improvements have been implemented under TASK-7; its acceptance criteria and notes record verification, review, and integration status.** TASK-6 tracked writing this handoff. The workstreams below preserve the approved scope and implementation requirements rather than describing outstanding work.
 
 The goal is a Nuxt template that gives future coding agents strong feedback and clear defaults without making them design controllers, dependency injection, or another application framework. Preserve Nuxt's native structure and leave agents focused on business logic.
 

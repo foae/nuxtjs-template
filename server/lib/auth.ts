@@ -181,7 +181,7 @@ export function createAuth(db: Db) {
     secret: config.secret,
     trustedOrigins: config.trustedOrigins,
     logger: {
-      log: (level, message, ...args) => {
+      log: (level, message, ...args: unknown[]) => {
         for (const arg of args) scrubErrorInPlace(arg)
         logger[level === 'warn' ? 'warn' : level === 'error' ? 'error' : level === 'debug' ? 'debug' : 'info'](redact(message), ...redact(args))
       }
@@ -236,9 +236,11 @@ export function createAuth(db: Db) {
     disabledPaths: ['/sso/register', '/sso/update-provider', '/sso/delete-provider', '/sso/request-domain-verification', '/sso/verify-domain', '/sso/providers', '/sso/get-provider', '/link-social', '/unlink-account', '/change-email', '/delete-user', '/get-access-token', '/refresh-token', '/account-info', '/list-accounts', '/update-user'],
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        // Better Auth exposes an unvalidated `any` body to before hooks.
+        const body: unknown = ctx.body
         let registration: ReturnType<typeof registerSchema.parse> | undefined
         if (ctx.path === '/sign-up/email') {
-          const parsed = registerSchema.safeParse(ctx.body)
+          const parsed = registerSchema.safeParse(body)
           if (!parsed.success) {
             const errors: Record<string, string> = {}
             for (const issue of parsed.error.issues) errors[String(issue.path[0] ?? 'form')] ??= issue.message
@@ -248,11 +250,15 @@ export function createAuth(db: Db) {
         }
         if (ctx.path === '/send-verification-email') {
           const session = ctx.headers ? await getAuth(db).api.getSession({ headers: ctx.headers }) : null
-          if (!session || session.user.email.toLowerCase() !== String(ctx.body?.email ?? '').toLowerCase()) {
+          const email = body && typeof body === 'object' && 'email' in body ? body.email : undefined
+          if (!session || session.user.email.toLowerCase() !== String(email ?? '').toLowerCase()) {
             throw new APIError('UNAUTHORIZED', { code: 'EMAIL_VERIFICATION_SESSION_REQUIRED', message: 'Sign in in this browser before requesting a verification email.' })
           }
         }
-        if (ctx.path === '/sign-in/sso' && !config.providers.some(p => p.providerId === ctx.body?.providerId)) throw new APIError('BAD_REQUEST', { message: 'Choose a configured enterprise provider' })
+        if (ctx.path === '/sign-in/sso') {
+          const providerId = body && typeof body === 'object' && 'providerId' in body ? body.providerId : undefined
+          if (!config.providers.some(p => p.providerId === providerId)) throw new APIError('BAD_REQUEST', { message: 'Choose a configured enterprise provider' })
+        }
         // All configured windows are at most 60 seconds. An hour leaves ample
         // margin for active requests; predicate evaluation protects concurrent updates.
         if (Date.now() >= nextRateLimitCleanup) {

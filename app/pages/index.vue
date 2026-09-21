@@ -4,8 +4,8 @@
  *
  * `useFetch` is the right call here: it runs during SSR, so the HTML arrives
  * populated, and the payload is reused on the client instead of refetching.
- * Use `$fetch` only inside event handlers — calling it at setup level would
- * fetch twice (once on the server, again on hydration).
+ * `useAsyncData(() => $fetch(...))` also reuses the SSR payload. A bare setup
+ * `$fetch` does not; use it directly in event handlers.
  *
  * Pagination lives in the URL (`/?page=2`) rather than component state, so a
  * page is shareable, survives reload, and renders correctly on the server.
@@ -27,7 +27,7 @@ const page = computed(() => {
   return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 1
 })
 
-const { data, status } = await useFetch<Paginated<PostWithAuthor>>('/api/posts', {
+const { data, error, refresh, status } = await useFetch<Paginated<PostWithAuthor>>('/api/posts', {
   query: computed(() => ({
     limit: PER_PAGE,
     offset: (page.value - 1) * PER_PAGE
@@ -60,6 +60,22 @@ function goToPage(next: number) {
         class="h-24 w-full"
       />
     </div>
+
+    <UAlert
+      v-else-if="error"
+      color="error"
+      icon="i-lucide-triangle-alert"
+      title="Unable to load posts"
+      description="Please try again."
+      variant="subtle"
+    >
+      <template #actions>
+        <UButton
+          label="Try again"
+          @click="refresh()"
+        />
+      </template>
+    </UAlert>
 
     <UAlert
       v-else-if="!data?.items.length"

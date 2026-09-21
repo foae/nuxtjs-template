@@ -49,7 +49,7 @@ function main() {
   const ci = runs[0]
   requireCondition(!!ci && ci.status === 'completed' && ci.conclusion === 'success', 'Latest push CI must have passed on this exact commit.')
   const details = JSON.parse(run('gh', 'run', 'view', String(ci.databaseId), '--json', 'jobs')) as { jobs: { name: string, conclusion: string }[] }
-  for (const name of ['verify', 'e2e', 'docker', 'ci']) {
+  for (const name of ['verify', 'audit', 'e2e', 'docker', 'ci']) {
     requireCondition(details.jobs.some(job => job.name === name && job.conclusion === 'success'), `CI job ${name} must pass, not skip.`)
   }
   run('git', 'tag', '-a', tag, sha, '-m', `${tag}: ${value}`)

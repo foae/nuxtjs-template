@@ -121,11 +121,9 @@ jobs:
           cache: true
           require-lockfile: true
 
-      - name: Audit dependencies
-        run: pnpm audit
-
       - name: Verify
         run: pnpm verify
+
 
       # `pnpm verify` writes a migration when the schema is stale. It already
       # fails in that case; this also catches untracked files, so any other
@@ -138,6 +136,46 @@ jobs:
             exit 1
           fi
 
+
+  audit:
+    # Keep security feedback independent: a dependency advisory must not hide
+    # the quality result from `verify`. `--audit-level=high` still prints every
+    # advisory, but exits non-zero only for high/critical findings. Audit tool
+    # failures also return non-zero and therefore fail this job.
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install pnpm, Node and dependencies
+        uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          runtime: node@24
+          cache: true
+          require-lockfile: true
+
+      - name: Report all advisories and block high or critical
+        run: |
+          status=0
+          pnpm audit --json > audit-report.json || status=$?
+          cat audit-report.json
+          # pnpm filters advisory details with --audit-level=high. Keep the full
+          # report visible, then apply the integration threshold to its counts.
+          # A tool/registry error must not be mistaken for an advisory report.
+          test "$status" -le 1
+          jq --exit-status --argjson status "$status" '
+            .metadata.vulnerabilities
+            | . as $counts
+            | [.info, .low, .moderate, .high, .critical]
+            | all(.[]; type == "number" and . >= 0)
+              and ($status == 0 or (add > 0))
+              and ($counts.high == 0 and $counts.critical == 0)
+          ' audit-report.json >/dev/null
   e2e:
     # The full stack against a real Postgres.
     needs: changes
@@ -183,12 +221,15 @@ jobs:
       - name: End-to-end tests
         run: pnpm test:e2e
 
-      - name: Upload report on failure
+      - name: Upload Playwright artifacts on failure
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: playwright-report
-          path: playwright-report/
+          name: playwright-artifacts
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
           retention-days: 7
 
   docker:
@@ -240,6 +281,18 @@ jobs:
 
       - name: Boot the runtime image and probe it
         run: |
+          set -euo pipefail
+
+          cleanup() {
+            status=$?
+            if [ "$status" -ne 0 ]; then
+              docker logs app || true
+            fi
+            docker rm -f app >/dev/null 2>&1 || true
+            exit "$status"
+          }
+          trap cleanup EXIT
+
           docker run -d --name app --network host \
             -e DATABASE_URL=postgres://app:app@localhost:5432/app \
             -e AUTH_BASE_URL=http://localhost:3000 \
@@ -247,13 +300,31 @@ jobs:
             -e AUTH_TEST_MODE=true \
             -e AUTH_MAIL_TRANSPORT=capture \
             app
+
+          ready=0
           for _ in $(seq 1 30); do
-            curl -sf -o /dev/null http://localhost:3000/ && exit 0
+            if curl --fail --silent --max-time 2 --output /dev/null http://localhost:3000/; then
+              ready=1
+              break
+            fi
             sleep 1
           done
-          echo '::error::runtime image never answered on :3000'
-          docker logs app
-          exit 1
+
+          if [ "$ready" -ne 1 ]; then
+            echo '::error::runtime image never answered on :3000'
+            exit 1
+          fi
+
+          # The empty list is valid: these checks prove the API envelope and,
+          # because this handler queries posts and their count, real DB access.
+          curl --fail --silent --show-error --max-time 5 http://localhost:3000/api/posts \
+            | jq --exit-status '
+                type == "object"
+                and (.items | type == "array")
+                and (.total | type == "number")
+                and (.limit | type == "number")
+                and (.offset | type == "number")
+              ' >/dev/null
 
   ci:
     # The one job to mark as a required status check in branch protection.
@@ -261,11 +332,11 @@ jobs:
     # Not decorative — it closes a hole the gating job opens. GitHub counts a
     # skipped job as a *successful* required check, and when a job fails its
     # dependents are skipped rather than failed. So if `changes` itself ever
-    # failed, verify/e2e/docker would report Success without running and a
+    # failed, verify/audit/e2e/docker would report Success without running and a
     # broken PR would be mergeable. `always()` plus an explicit result check is
     # GitHub's documented remedy for exactly that.
     if: always()
-    needs: [changes, verify, e2e, docker]
+    needs: [changes, verify, audit, e2e, docker]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

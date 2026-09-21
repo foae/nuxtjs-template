@@ -55,8 +55,9 @@ check the session itself — never rely on client middleware for authorisation.
 
 ## 4. Load its data
 
-`useFetch` at setup level. `$fetch` during setup fetches twice (once on the
-server, again on hydration) — it belongs in event handlers only.
+Use Nuxt's `useFetch` at setup level, or `useAsyncData(() => $fetch(...))`
+when composing requests. Both reuse the SSR payload during hydration. A bare
+setup `$fetch` does not; use it in event handlers for imperative requests.
 
 ```ts
 const { data, status, error } = await useFetch('/api/reports')
@@ -66,8 +67,9 @@ const { data, status, error } = await useFetch('/api/reports')
   don't add a watcher.
 - Keep page state in the URL, not in a `ref`: `app/pages/index.vue` is the
   pagination reference, and always clamp a parsed page number.
-- Submitting a form? `useApiForm()`, never hand-rolled `$fetch` + `ref(false)`
-  — see the Forms section of `CLAUDE.md`.
+- Submitting a form? This template uses `useApiForm()`, not hand-rolled
+  `$fetch` + `ref(false)`, to preserve its 422 field-error contract. This is
+  template policy, not a Nuxt requirement — see Forms in `CLAUDE.md`.
 - Needs a new endpoint? That is a different job: follow **Adding a resource**
   in `CLAUDE.md` (an ordered 8-step build), and read **Relations and
   ownership** first if the resource belongs to another one.

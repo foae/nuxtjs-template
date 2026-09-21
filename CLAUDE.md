@@ -90,9 +90,9 @@ running the endpoint caught it.
 pnpm verify
 ```
 
-Typecheck + lint + unit tests + migration-freshness + vendored-docs-pinned.
-Needs no database, takes ~35s, and is the same command CI runs — there is no
-separate list of checks that can drift from this one.
+Typecheck + lint + unit/runtime tests + migration-freshness + vendored-docs-pinned.
+Needs no database and is the same quality command CI runs — there is no
+separate list of quality checks that can drift from this one.
 
 If it fails, fix it. Do not report success with a failing verify.
 `pnpm lint:fix` auto-fixes formatting and import order; it will not fix a
@@ -113,6 +113,27 @@ raw Tailwind palette colours (`text-green-500`, `bg-[#fff]`) — see **Making it
 yours**. The type-aware pass is why lint takes ~15s rather
 than ~3s; it is also the only thing that catches a forgotten `await` on a
 write. See rule 14.
+
+Safety rules and unused ESLint suppressions are errors; advisory warnings remain
+non-blocking. Application/server/shared code also enables the five `no-unsafe-*`
+assignment/argument/call/member-access/return rules. Narrow untyped boundaries
+at runtime rather than hiding reports with assertions. Vue scripts require
+`lang="ts"`; explicit emits, block order and macro order are errors. Import
+ordering groups Node builtins, packages, project aliases, then relative imports,
+alphabetically within groups.
+
+The direct-import, resource-input, create-schema `.partial()` and literal
+`statusCode: 403` guards are bounded syntax checks, not security proofs. Preserve
+type-only imports and server-only Nuxt surfaces. Intentional raw-body handlers
+need a narrow, explained lint exception; ordinary resource input goes through
+the validation helpers. Indirect imports, aliases and helper-produced status
+codes still require review.
+
+CI dependency auditing is independent of `verify`: all advisories are reported,
+high/critical findings and audit execution errors block integration. Exceptions
+must be advisory-specific, documented with rationale/owner/expiry in Backlog,
+and removed when expired. See the [fork checklist](README.md#fork-checklist) for
+the required aggregate check and external-service setup.
 
 ### 2. Behavioural — run the thing you changed
 
@@ -202,6 +223,11 @@ E2E needs an explicit `E2E_DATABASE_URL` naming a disposable `_e2e` database;
 it must never reset an existing `DATABASE_URL`.
 
 Unit test (`tests/unit/`) for a pure function — mapping, a schema, a helper.
+Nuxt runtime tests (`tests/nuxt/`) exercise composables such as `useApiForm`;
+they opt into the Nuxt environment while pure units stay in Node. Keep them
+in `tests/nuxt/`: Nuxt includes that directory in its generated app type
+context, with auto-imports; `tsconfig.tools.json` deliberately excludes it.
+Both run in `pnpm test`, `pnpm check` and `pnpm verify`.
 E2E (`tests/e2e/`) for anything that crosses HTTP or touches the database.
 
 ## Fast feedback
@@ -566,8 +592,9 @@ These cost real debugging time. Do not "fix" them back.
    time with no database. `nuxt.config.ts` has no prerender rules on purpose.
    Use `swr`/`isr` route rules if you want caching.
 
-4. **`useFetch` at setup level, `$fetch` in event handlers.** Calling `$fetch`
-   during setup fetches twice — once on the server, again on hydration.
+4. **Use SSR-aware data fetching at setup level.** Use `useFetch` or
+   `useAsyncData(() => $fetch(...))` to reuse the server payload on hydration.
+   A bare setup `$fetch` can run twice. Use `$fetch` directly in event handlers.
 
 5. **One Vue version only.** `pnpm-workspace.yaml` pins the whole `vue` family.
    Two copies in one bundle produce a blank 500 page and
@@ -710,8 +737,8 @@ the getting-started subset.
 | `pnpm db:reset` | drop → migrate → seed, unattended — **DROPs the schema**; disposable local database only |
 | `pnpm lint` / `lint:fix` | uncached ESLint gate / cached whole-repository autofix; fixes mutate files |
 | `pnpm typecheck` | Nuxt build-mode typecheck across all five root project references |
-| `pnpm test` | unit tests (fast, no DB) |
-| `pnpm test:watch` | watch-mode unit tests (long-running) |
+| `pnpm test` | pure unit and Nuxt runtime tests (no DB) |
+| `pnpm test:watch` | unit/runtime watch mode (long-running) |
 | `pnpm test:e2e` | production build, Playwright and controlled auth fixtures; resets only dedicated `E2E_DATABASE_URL` ending in `_e2e` |
 | `pnpm test:auth` | controlled provider/mail/config regressions; requires an initialized disposable `E2E_DATABASE_URL` |
 | `pnpm docs:sync` | re-mirror Nuxt docs at the installed version |
@@ -742,7 +769,7 @@ breaking changes. Vendored framework/skill versions are independent.
    from clean `main`; this changes the package version without tagging.
 2. Write accurate notes in `.private/release-notes.md` (never secrets).
 3. Run `pnpm verify` and `pnpm test:e2e`; commit the version bump and push main.
-4. Wait for successful verify, e2e, Docker and aggregate CI jobs on that exact
+4. Wait for successful verify, audit, e2e, Docker and aggregate CI jobs on that exact
    commit. A prior green run or prose-only skipped checks are insufficient.
 5. Run `pnpm release:publish "<meaningful title>" .private/release-notes.md`.
    It checks remote main and CI, creates an annotated `vMAJOR.MINOR.PATCH` tag,

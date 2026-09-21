@@ -34,5 +34,7 @@
     "server/database/**/*.ts",
     "server/utils/posts.ts",
     "shared/**/*.ts"
-  ]
+  ],
+  // Runtime tests belong to Nuxt's generated app context, including auto-imports.
+  "exclude": ["tests/nuxt/**"]
 }
