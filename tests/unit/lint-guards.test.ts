@@ -70,6 +70,7 @@ describe('lint safety guards', () => {
     ]))
   })
 
+  // Shared has its own TypeScript project, initialized by this integration test.
   it('blocks direct runtime imports while preserving type and server-only boundaries', async () => {
     const sharedRuntimeRules = await lintRuleIds(
       'import { useRuntimeConfig } from \'#app\'\nvoid useRuntimeConfig\n',
@@ -137,7 +138,7 @@ describe('lint safety guards', () => {
     expect(appAliasRules).toContain('no-restricted-imports')
     expect(appDeepTraversalRules).toContain('no-restricted-imports')
     expect(serverSurfaceRules).not.toContain('no-restricted-imports')
-  })
+  }, 30_000)
 
   it('exempts only Nuxt server-only plugins and components, not suffixed utilities', async () => {
     for (const [path, restricted] of [
