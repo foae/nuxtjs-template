@@ -79,7 +79,10 @@ do not put machine names or model identities in the template.
 
    The flag is `--q`, not `--query`, and **`--workspace-id` is required** even
    when `--project-id` already pins the project — omitting it is an
-   `invalid_arguments` exit 2, not an empty result. Inspect candidates with
+   `invalid_arguments` exit 2, not an empty result. Search is fuzzy and
+   relevance-ranked, never identity resolution: trust a result set only when
+   `totalCount` equals the number of results returned, otherwise it is
+   truncated and you must list the project instead. Inspect candidates with
    `kaneo-cli task get --id "$TASK_ID"`.
 2. Create the task with the user's intent and observable acceptance criteria.
    `task create` requires **all four** of `title`, `description`, `priority`
@@ -88,8 +91,8 @@ do not put machine names or model identities in the template.
    `no-priority`, `low`, `medium`, `high`, `urgent`.
 
    ```bash
-   kaneo-cli task create --project-id "$PROJECT_ID" --body-file "$body_dir/task.json"
-   # task.json: {"title":"…","description":"…","priority":"medium","status":"to-do"}
+   body="$(python3 -c 'import json; print(json.dumps({"title":"…","description":"…","priority":"medium","status":"to-do"}))')" || exit $?
+   printf '%s' "$body" | kaneo-cli task create --project-id "$PROJECT_ID" --body-file -
    ```
 
    Clarify material ambiguity with the user before implementing.
@@ -120,9 +123,17 @@ The full command reference is the vendored skill at
   `task update-status`, `update-priority`, `update-title`,
   `update-description`, `update-assignee` — for single-field changes. This is
   the same class of bug as rule 11 below, in a different tool.
-- **Mutations read a JSON object from `--body-file`, not from flags.** Write
-  it in a `umask 077` temporary directory, in the same shell invocation as the
-  command, and delete it afterwards; task text is private data.
+- **Mutations read a JSON object from `--body-file`, not from flags.** Pipe it
+  in with `--body-file -` and build it with a JSON-aware serializer, checking
+  the serializer's own exit status before the pipe; the CLI must be the
+  pipeline's last command so its status survives. A temporary file is the
+  fallback for a body you need to reuse — `umask 077` directory, same shell
+  invocation, deleted afterwards. Task text is private data either way, and
+  still reaches shell history and tool logs, so keep secrets out of bodies.
+- **`task list` with no `--page`/`--limit` returns everything on one page** —
+  omit both for ordinary discovery. A JSON response over 8 MiB fails before
+  anything reaches stdout: that is a failure, not an empty list. Only then
+  paginate, and read `pagination.totalPages` rather than stopping at page 1.
 - **The display key is not the task ID.** `NUXT-12` is a label; `task get
   --id` wants the server's opaque ID. There is no key-to-ID resolution command
   — list and match.
@@ -407,7 +418,7 @@ Any agent that auto-loads none of this can just read the files: they are plain
 markdown and self-contained.
 
 `.agents/skills/kaneo-cli/` is vendored verbatim from
-[foae/kaneo-cli](https://github.com/foae/kaneo-cli) at tag **v1.3.1**, keeping
+[foae/kaneo-cli](https://github.com/foae/kaneo-cli) at tag **v1.4.0**, keeping
 it in lockstep with the installed CLI (`kaneo-cli version` reports the same).
 It is a plain committed copy under its own MIT licence, **not** a generated
 tree — rule 13 and the `MANIFEST.sha256` check do not apply to it. Update it

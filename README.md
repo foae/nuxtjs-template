@@ -284,7 +284,7 @@ edit here:
 kaneo-cli org list                                     # the org id IS the workspace id
 kaneo-cli project list --workspace-id "$WORKSPACE_ID"  # the project named for this repo
 kaneo-cli column list --project-id "$PROJECT_ID"       # slugs are the status values
-kaneo-cli task list --project-id "$PROJECT_ID" --page 1 --limit 50
+kaneo-cli task list --project-id "$PROJECT_ID"         # omit --page/--limit: one full page
 ```
 
 Track any change to `app/`, `server/`, `shared/`, the database schema, CI,
