@@ -92,7 +92,11 @@ async function startServerWithUnavailableDatabase() {
       AUTH_GOOGLE_CLIENT_SECRET: '',
       AUTH_GITHUB_CLIENT_ID: '',
       AUTH_GITHUB_CLIENT_SECRET: '',
-      AUTH_SSO_CONFIG_FILE: ''
+      AUTH_SSO_CONFIG_FILE: '',
+      AUTH_TRUSTED_PROXY_IPS: '',
+      DATABASE_POOL_MAX: '',
+      AWS_REGION: '',
+      AUTH_EMAIL_FROM: ''
     },
     stdio: 'ignore'
   })

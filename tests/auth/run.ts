@@ -2,7 +2,11 @@ import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { consola } from 'consola'
 
-// No local .env loading: provider fixtures must never inherit deployment credentials.
+// `.env` IS loaded (see the --env-file-if-exists flag on the test:auth script), but
+// only so E2E_DATABASE_URL can be configured there. Provider fixtures must never
+// inherit deployment credentials, so the child env below stays an explicit
+// allowlist — do not widen it to `...process.env`, or a real AWS_REGION,
+// AUTH_EMAIL_FROM or provider secret from `.env` reaches the SES/social fixtures.
 const database = process.env.E2E_DATABASE_URL
 if (!database) throw new Error('E2E_DATABASE_URL must name an initialized disposable database ending in _e2e')
 const url = new URL(database)

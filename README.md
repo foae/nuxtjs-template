@@ -164,8 +164,10 @@ pnpm preview                # preview the production build
 
 `pnpm verify` needs no database. E2E requires `E2E_DATABASE_URL` to name a
 dedicated disposable database ending in `_e2e`; it may reset only that explicit
-database and never falls back to or resets `DATABASE_URL`. Stop the development
-server with Ctrl-C; stop PostgreSQL with `pnpm db:down` (the Docker volume remains).
+database and never falls back to or resets `DATABASE_URL`. Set it in `.env`
+(see `.env.example`) or export it; an exported value wins over the file.
+Stop the development server with Ctrl-C; stop PostgreSQL with `pnpm db:down`
+(the Docker volume remains).
 
 `pnpm test:e2e` also runs `pnpm test:auth`: controlled Google/GitHub, OIDC,
 SAML, SES and startup-configuration regressions. Run `pnpm test:auth` alone

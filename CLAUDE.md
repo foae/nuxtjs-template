@@ -331,9 +331,11 @@ not performance guarantees:
 | Discover E2E tests without running/resetting | `pnpm exec playwright test --list` | under 1 s |
 
 E2E discovery still requires `E2E_DATABASE_URL` to name a dedicated disposable
-`_e2e` database. To run one named browser/API test, use
-**`pnpm build && pnpm exec playwright test -g "<name>"`** with that variable
-exported; it builds first and resets only the explicit test database.
+`_e2e` database. Set it in `.env` or export it: `playwright.config.ts` and the
+`test:auth` script both load `.env` when present, and an exported value takes
+precedence over the file. To run one named browser/API test, use
+**`pnpm build && pnpm exec playwright test -g "<name>"`**; it builds first and
+resets only the explicit test database.
 `pnpm test:e2e` also runs controlled provider/mail fixtures after Playwright;
 do not append Playwright options to that compound command. Direct Playwright
 execution without a fresh build can test stale `.output`; only discovery
@@ -813,7 +815,7 @@ the getting-started subset.
 | `pnpm test` | pure unit and Nuxt runtime tests (no DB) |
 | `pnpm test:watch` | unit/runtime watch mode (long-running) |
 | `pnpm test:e2e` | production build, Playwright and controlled auth fixtures; resets only dedicated `E2E_DATABASE_URL` ending in `_e2e` |
-| `pnpm test:auth` | controlled provider/mail/config regressions; requires an initialized disposable `E2E_DATABASE_URL` |
+| `pnpm test:auth` | controlled provider/mail/config regressions; requires an initialized disposable `E2E_DATABASE_URL`, from `.env` or the environment |
 | `pnpm docs:sync` | re-mirror Nuxt docs at the installed version |
 | `pnpm skills:sync` | re-vendor the Nuxt UI skill |
 | `pnpm release:prepare <version>` | bump the template's stable SemVer on clean main |

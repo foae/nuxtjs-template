@@ -17,7 +17,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "nuxt build && playwright test && pnpm test:auth",
-    "test:auth": "tsx tests/auth/run.ts",
+    "test:auth": "tsx --env-file-if-exists=.env tests/auth/run.ts",
     "db:up": "docker compose up -d --wait postgres",
     "db:down": "docker compose down",
     "db:generate": "drizzle-kit generate",

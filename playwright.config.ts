@@ -1,8 +1,19 @@
-import { mkdtempSync } from 'node:fs'
+import { existsSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 import { defineConfig, devices } from '@playwright/test'
+
+// `playwright test` does not run through tsx, so unlike every other script in
+// package.json it never sees `--env-file-if-exists=.env`. Without this, the
+// E2E_DATABASE_URL that .env.example invites you to set in `.env` is silently
+// ignored, and the run fails only after a full production build. This does not
+// weaken the guard below: loadEnvFile never overwrites an already-set variable,
+// so a shell export or CI's job env still wins, and the `_e2e` suffix is
+// re-validated regardless of where the value came from.
+const envFile = fileURLToPath(new URL('.env', import.meta.url))
+if (existsSync(envFile)) process.loadEnvFile(envFile)
 
 function e2eDatabaseUrl(): string {
   const value = process.env.E2E_DATABASE_URL
@@ -88,7 +99,15 @@ export default defineConfig({
       AUTH_GOOGLE_CLIENT_SECRET: '',
       AUTH_GITHUB_CLIENT_ID: '',
       AUTH_GITHUB_CLIENT_SECRET: '',
-      AUTH_SSO_CONFIG_FILE: ''
+      AUTH_SSO_CONFIG_FILE: '',
+      // Pinned because this env is merged over process.env, which now includes
+      // `.env`. Blank keeps the server hermetic: a developer's real
+      // AUTH_TRUSTED_PROXY_IPS or DATABASE_POOL_MAX must not change the
+      // behaviour under test. Empty reads as unset for all four.
+      AUTH_TRUSTED_PROXY_IPS: '',
+      DATABASE_POOL_MAX: '',
+      AWS_REGION: '',
+      AUTH_EMAIL_FROM: ''
     }
   }
 })
