@@ -2,11 +2,11 @@
 
 ## Status and purpose
 
-Recorded 2026-09-21 after a repository audit, cross-model second opinion, and user interview. Amended the same day after an independent second audit and a follow-up interview (see "Second audit" under the review record). **The selected improvements have been implemented under TASK-7; its acceptance criteria and notes record verification, review, and integration status.** TASK-6 tracked writing this handoff. The workstreams below preserve the approved scope and implementation requirements rather than describing outstanding work.
+Recorded 2026-09-21 after a repository audit, cross-model second opinion, and user interview. Amended the same day after an independent second audit and a follow-up interview (see "Second audit" under the review record). **The selected improvements have been implemented and verified.** They were tracked as `TASK-7`, and `TASK-6` tracked writing this handoff, in the Backlog.md tracker this repository used before adopting Kaneo. Those records were not migrated: both tasks were `Done`, and their acceptance criteria and notes remain in git history under `.backlog/tasks/`. Searching Kaneo for those identifiers will not find them. The workstreams below preserve the approved scope and implementation requirements rather than describing outstanding work.
 
 The goal is a Nuxt template that gives future coding agents strong feedback and clear defaults without making them design controllers, dependency injection, or another application framework. Preserve Nuxt's native structure and leave agents focused on business logic.
 
-Before implementing, search Backlog for related work, create or update appropriately scoped implementation tasks, inspect the current source, and record the researched plan. File references below are starting points, not a substitute for rereading current code. Do not infer permission to push, publish a release, or change remote repository settings from this handoff.
+Before implementing, search Kaneo for related work, create or update appropriately scoped implementation tasks, inspect the current source, and record the researched plan. File references below are starting points, not a substitute for rereading current code. Do not infer permission to push, publish a release, or change remote repository settings from this handoff.
 
 **Integration default.** Unless instructed otherwise, finished work that has passed verification and review may be committed directly to `main`; do not leave finished work uncommitted. Workflow skills may instead carry a task through a git worktree, a pull request, review, merge and release; when one is in use, follow it. This is a sane default, not a guardrail: pushes, releases and remote settings stay explicit owner steps.
 
@@ -289,7 +289,7 @@ Follow current repository instructions rather than treating this document as an 
 - Build before production E2E execution. Use only an explicit disposable `E2E_DATABASE_URL` ending in `_e2e`; never reset an existing database.
 - Preserve worthwhile regression tests for demonstrated bugs; avoid source-text and incidental-wiring assertions.
 - Remove throwaway probes and failure-injection scaffolding after verification.
-- Record evidence and review findings in Backlog. Leave implementation tasks In Review until verified, reviewed, and integrated on main.
+- Record evidence and review findings in Kaneo. Leave implementation tasks In Review until verified, reviewed, and integrated on main.
 - Commit finished, verified, reviewed work per the integration default above. Pushes, remote settings, and release publication require the appropriate authorization. Do not claim a release from local checks alone.
 
 ## Review record and evidence limitations

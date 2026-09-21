@@ -15,7 +15,6 @@ dist
 # production image.
 _vendor
 _docs
-.backlog
 .claude
 .agents
 AGENTS.md
