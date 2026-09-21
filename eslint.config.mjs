@@ -68,6 +68,18 @@ export default withNuxt(
   /** Small, high-signal additions that need no type information. */
   {
     rules: {
+      // Node builtins, packages, project aliases (#shared and ~), then relatives.
+      // Alphabetize within groups; type imports follow the same source ordering.
+      'import/order': ['error', {
+        'groups': ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
+        'pathGroups': [
+          { pattern: '#shared/**', group: 'internal' },
+          { pattern: '~/**', group: 'internal' }
+        ],
+        'pathGroupsExcludedImportTypes': ['builtin'],
+        'alphabetize': { order: 'asc', caseInsensitive: true },
+        'newlines-between': 'never'
+      }],
       // `== null` stays legal: it is the idiomatic null-or-undefined check.
       'eqeqeq': ['error', 'always', { null: 'ignore' }],
       'object-shorthand': ['error', 'properties'],

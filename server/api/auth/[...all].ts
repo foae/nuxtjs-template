@@ -1,6 +1,6 @@
+import { isIP } from 'node:net'
 import { getRequestIP, toWebRequest } from 'h3'
 import { authConfiguration, getAuth } from '../../lib/auth'
-import { isIP } from 'node:net'
 import { logger, redact } from '../../utils/logger'
 
 export default defineEventHandler(async (event) => {

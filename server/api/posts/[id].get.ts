@@ -5,9 +5,9 @@
  * 403 for someone else's draft, so the endpoint doesn't leak the existence
  * of unpublished posts.
  */
+import { eq } from 'drizzle-orm'
 import { postIdSchema } from '#shared/schemas/post'
 import type { PostWithAuthor } from '#shared/types/api'
-import { eq } from 'drizzle-orm'
 
 export default defineEventHandler(async (event): Promise<PostWithAuthor> => {
   const { id } = validateParams(event, postIdSchema)

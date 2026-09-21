@@ -1,7 +1,7 @@
-import { SendEmailCommand, SESv2Client } from '@aws-sdk/client-sesv2'
+import { randomUUID } from 'node:crypto'
 import { chmod, mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { SendEmailCommand, SESv2Client } from '@aws-sdk/client-sesv2'
 
 export type AuthEmail = {
   to: string

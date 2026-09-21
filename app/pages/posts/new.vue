@@ -6,10 +6,10 @@
  * validates with, so client and server rules cannot diverge. Nuxt UI's UForm
  * accepts any Standard Schema, which Zod 4 implements natively.
  */
-import { postCreateSchema } from '#shared/schemas/post'
-import type { PostWithAuthor } from '#shared/types/api'
 import type { FormSubmitEvent } from '@nuxt/ui'
 import type { z } from 'zod'
+import { postCreateSchema } from '#shared/schemas/post'
+import type { PostWithAuthor } from '#shared/types/api'
 
 definePageMeta({ middleware: 'auth' })
 

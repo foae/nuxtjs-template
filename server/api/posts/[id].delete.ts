@@ -1,8 +1,8 @@
 /**
  * DELETE /api/posts/:id — delete a post you own.
  */
-import { postIdSchema } from '#shared/schemas/post'
 import { and, eq } from 'drizzle-orm'
+import { postIdSchema } from '#shared/schemas/post'
 
 export default defineEventHandler(async (event) => {
   const { id } = validateParams(event, postIdSchema)

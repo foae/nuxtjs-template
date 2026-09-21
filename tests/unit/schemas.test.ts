@@ -3,9 +3,9 @@
  * validates with and the forms bind to, so a rule proven here holds
  * everywhere.
  */
+import { describe, expect, it } from 'vitest'
 import { credentialsSchema, registerSchema } from '#shared/schemas/auth'
 import { postCreateSchema, postListQuerySchema, postUpdateSchema } from '#shared/schemas/post'
-import { describe, expect, it } from 'vitest'
 
 describe('postCreateSchema', () => {
   it('accepts a well-formed post and applies defaults', () => {

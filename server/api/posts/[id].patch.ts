@@ -1,9 +1,9 @@
 /**
  * PATCH /api/posts/:id — update a post you own.
  */
+import { and, eq, ne } from 'drizzle-orm'
 import { postIdSchema, postUpdateSchema } from '#shared/schemas/post'
 import type { PostWithAuthor } from '#shared/types/api'
-import { and, eq, ne } from 'drizzle-orm'
 
 export default defineEventHandler(async (event): Promise<PostWithAuthor> => {
   const { id } = validateParams(event, postIdSchema)

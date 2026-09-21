@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
+import * as z from 'zod'
 
 const schema = z.object({
   newPassword: z.string().min(12, 'Use at least 12 characters').max(200),

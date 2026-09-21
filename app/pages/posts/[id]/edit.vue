@@ -7,10 +7,10 @@
  * alone" rather than "reset it" — see shared/schemas/post.ts for why that
  * distinction destroyed data when it was got wrong.
  */
-import { postUpdateSchema } from '#shared/schemas/post'
-import type { PostWithAuthor } from '#shared/types/api'
 import type { FormSubmitEvent } from '@nuxt/ui'
 import type { z } from 'zod'
+import { postUpdateSchema } from '#shared/schemas/post'
+import type { PostWithAuthor } from '#shared/types/api'
 
 definePageMeta({ middleware: 'auth' })
 

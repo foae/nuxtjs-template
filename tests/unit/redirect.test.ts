@@ -3,8 +3,8 @@
  * login page and the OAuth routes, so the interesting cases are the hostile
  * ones.
  */
-import { safeRedirectPath } from '#shared/utils/redirect'
 import { describe, expect, it } from 'vitest'
+import { safeRedirectPath } from '#shared/utils/redirect'
 
 describe('safeRedirectPath', () => {
   it('keeps a same-origin path', () => {

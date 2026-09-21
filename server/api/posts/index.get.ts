@@ -4,9 +4,9 @@
  * Unauthenticated callers only ever see published posts. A signed-in user
  * additionally sees their own drafts.
  */
+import { and, count, desc, eq, or } from 'drizzle-orm'
 import { postListQuerySchema } from '#shared/schemas/post'
 import type { Paginated, PostWithAuthor } from '#shared/types/api'
-import { and, count, desc, eq, or } from 'drizzle-orm'
 
 export default defineEventHandler(async (event): Promise<Paginated<PostWithAuthor>> => {
   const { limit, offset, published } = validateQuery(event, postListQuerySchema)

@@ -25,11 +25,11 @@
  * fail in Postgres. Type-level agreement is not enforced anywhere — treat a
  * green run as "the names line up", nothing more.
  */
-import { getTableColumns, is } from 'drizzle-orm'
-import { PgTable } from 'drizzle-orm/pg-core'
 import { readdirSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { getTableColumns, is } from 'drizzle-orm'
+import { PgTable } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import * as schema from '../../server/database/schema'

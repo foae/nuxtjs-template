@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { credentialsSchema, registerSchema } from '#shared/schemas/auth'
 import type { FormSubmitEvent } from '@nuxt/ui'
+import { credentialsSchema, registerSchema } from '#shared/schemas/auth'
 
 const route = useRoute()
 const toast = useToast()

@@ -5,9 +5,9 @@ import { dirname } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { consola } from 'consola'
 import { and, eq, like } from 'drizzle-orm'
-import { createAuth } from '../../server/lib/auth'
 import { createDb } from '../../server/database/client'
 import { accounts, rateLimits, users } from '../../server/database/schema'
+import { createAuth } from '../../server/lib/auth'
 
 type Identity = { sub: string, email: string }
 

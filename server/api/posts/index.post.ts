@@ -5,9 +5,9 @@
  * contract in shared/schemas/post.ts has no such field, so a client cannot
  * create a post attributed to somebody else.
  */
+import { eq } from 'drizzle-orm'
 import { postCreateSchema } from '#shared/schemas/post'
 import type { PostWithAuthor } from '#shared/types/api'
-import { eq } from 'drizzle-orm'
 
 export default defineEventHandler(async (event): Promise<PostWithAuthor> => {
   const { user } = await requireUserSession(event)

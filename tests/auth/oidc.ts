@@ -9,9 +9,9 @@ import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { consola } from 'consola'
 import { and, eq, inArray, like } from 'drizzle-orm'
-import { createAuth } from '../../server/lib/auth'
 import { createDb } from '../../server/database/client'
 import * as tables from '../../server/database/schema'
+import { createAuth } from '../../server/lib/auth'
 
 const require = createRequire(import.meta.url)
 const ssoPackage = require.resolve('@better-auth/sso')

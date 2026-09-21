@@ -9,9 +9,9 @@ import { promisify } from 'node:util'
 import { consola } from 'consola'
 import { like } from 'drizzle-orm'
 import { z } from 'zod'
-import { createAuth } from '../../server/lib/auth'
 import { createDb, type DbHandle } from '../../server/database/client'
 import * as tables from '../../server/database/schema'
+import { createAuth } from '../../server/lib/auth'
 
 type SamlRequestInfo = { extract: { request?: { id?: string } } }
 type SamlResponse = { context: string }

@@ -6,9 +6,9 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, rm } from 'node:fs/promises'
 import { setTimeout as delay } from 'node:timers/promises'
-import postgres from 'postgres'
 import type { APIRequestContext, PlaywrightWorkerArgs } from '@playwright/test'
 import { expect, test } from '@playwright/test'
+import postgres from 'postgres'
 
 const PORT = process.env.E2E_PORT ?? '3199'
 const BASE_URL = `http://localhost:${PORT}`
