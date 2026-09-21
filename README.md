@@ -380,8 +380,14 @@ Vendored framework/skill versions remain independently versioned.
 `private: true` in the package manifest prevents accidental npm publication; it
 has no effect on GitHub visibility.
 
-For each release-worthy change (including documentation/configuration), from a
-clean `main` checkout:
+Releasing is a judgement call, not an obligation on every commit. Small,
+low-risk work — a typo, a doc clarification, a config tweak, a contained fix —
+can be verified and committed straight to `main`. Substantial work — a feature,
+a schema change, a dependency or toolchain bump, anything touching auth, CI or
+the deploy path — is worth a pull request and a release, so a fork has
+something to pin.
+
+For a release-worthy change, from a clean `main` checkout:
 
 ```bash
 pnpm release:prepare 1.0.1   # choose the next patch/minor/major as appropriate
@@ -401,7 +407,8 @@ verify/e2e/Docker CI jobs, creates and pushes an annotated tag without replacing
 any existing tag, publishes a stable non-draft GitHub release, and verifies it.
 If publishing fails after tagging, inspect the existing tag/release and finish
 that release manually with `gh`; never delete or move a published tag to retry.
-A version bump ensures even documentation-only releases run the full CI gates.
+When you do release documentation-only changes, the version bump is what makes
+CI run the full gates on them.
 
 ## Licence
 

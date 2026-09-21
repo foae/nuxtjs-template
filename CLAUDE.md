@@ -844,12 +844,22 @@ database instead of resetting it for an auth rollout.
 
 ---
 
-## Release every shipped change
+## Releasing — judgement, not ceremony
 
-Keep `package.json#version` as the template's version source. Every shipped
-change, including documentation/configuration, gets a new named stable release:
-patch for compatible fixes/docs, minor for compatible features, major for
-breaking changes. Vendored framework/skill versions are independent.
+Keep `package.json#version` as the template's version source: patch for
+compatible fixes/docs, minor for compatible features, major for breaking
+changes. Vendored framework/skill versions are independent.
+
+**Not every change needs a release, and there is no hard rule here.** Small,
+low-risk work — a typo, a doc clarification, a config tweak, a contained fix —
+is fine verified and committed straight to `main`. For substantial work — a new
+feature or resource, a schema change, a dependency or toolchain bump, anything
+touching auth, CI or the deploy path, or a change a fork would want to pin —
+**suggest a pull request and a release, then let the user decide.** Never
+publish a release unasked; `pnpm verify` and the behavioural half of **Done
+means two things** are not optional either way.
+
+When you do release:
 
 1. Commit implementation changes, then run `pnpm release:prepare <version>`
    from clean `main`; this changes the package version without tagging.
