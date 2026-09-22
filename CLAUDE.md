@@ -134,11 +134,24 @@ The full command reference is the vendored skill at
   omit both for ordinary discovery. A JSON response over 8 MiB fails before
   anything reaches stdout: that is a failure, not an empty list. Only then
   paginate, and read `pagination.totalPages` rather than stopping at page 1.
+  The board it returns holds tasks in **three** places — `data.columns[].tasks`,
+  `data.plannedTasks` (the UI's Backlog) and `data.archivedTasks` — so a walk
+  over `columns` alone misses work that exists. Narrow with `--status`.
 - **The display key is not the task ID.** `NUXT-12` is a label; `task get
-  --id` wants the server's opaque ID. There is no key-to-ID resolution command
-  — list and match.
-- **`status` takes a column slug**, not the display name. `in-progress`, not
-  `In Progress`.
+  --id` wants the server's opaque ID. Resolve the key instead of matching by
+  hand: `task get --key NUXT-12 --workspace-id "$WORKSPACE_ID"` (the two id
+  flags are mutually exclusive, and `--key` requires the workspace). It is an
+  exact client-side lookup across columns, planned and archived tasks, and a
+  key that matches nothing or matches twice is exit 2 — the CLI never guesses.
+- **`status` takes a column slug**, not the display name: `in-progress`, not
+  `In Progress`. Two reserved values are accepted anywhere a slug is —
+  `planned` (Backlog) and `archived` — on `task create`, `update-status`,
+  `update` and `bulk-update`, and neither bucket remembers the column the task
+  came from, so name the destination column when restoring. `task move` is the
+  exception: its `destinationStatus` must be a real column slug and rejects
+  both with a 400. `task import` is the other exception, and the dangerous one
+  — an unrecognized status there is silently rewritten to `planned`, reported
+  only in `results.tasks[].warnings`, with a success exit status.
 - **Destructive operations require `--yes`.** That flag is a mechanical
   safeguard, not the user's authorization; get the real thing first, for the
   exact operation and target.
@@ -419,7 +432,7 @@ Any agent that auto-loads none of this can just read the files: they are plain
 markdown and self-contained.
 
 `.agents/skills/kaneo-cli/` is vendored verbatim from
-[foae/kaneo-cli](https://github.com/foae/kaneo-cli) at tag **v1.5.0**, keeping
+[foae/kaneo-cli](https://github.com/foae/kaneo-cli) at tag **v1.6.0**, keeping
 it in lockstep with the installed CLI (`kaneo-cli version` reports the same).
 It is a plain committed copy under its own MIT licence, **not** a generated
 tree — rule 13 and the `MANIFEST.sha256` check do not apply to it. Update it

@@ -564,7 +564,7 @@ across template upgrades by the `adopt-deliver-ticket` skill.
   destroys your work silently** and fails `pnpm verify` via their
   `MANIFEST.sha256`. To change their content, change the script that writes it
   (`scripts/docs-sync.ts`, `scripts/skills-sync.ts`). `.agents/skills/kaneo-cli/`
-  is different: a plain committed copy vendored from upstream v1.4.0 under its
+  is different: a plain committed copy vendored from upstream v1.6.0 under its
   own MIT licence, exempt from that rule, updated by re-copying from the tag
   matching the installed CLI.
 

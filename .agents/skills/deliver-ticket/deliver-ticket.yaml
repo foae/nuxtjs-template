@@ -73,7 +73,7 @@ tracker:
     - "Leave tasks unassigned unless a human owner is known. Never put machine names or model identities on a task."
     - "Keep credentials and private operational notes out of task bodies and comments; they reach shell history and tool logs."
     - "`task list` with no --page/--limit returns everything on one page. A JSON response over 8 MiB fails before anything reaches stdout: that is a failure, not an empty list."
-    - "Requires kaneo-cli >= 1.5.0 for `task get --key`. The vendored skill at `.agents/skills/kaneo-cli/` is pinned to the tag matching the installed CLI (v1.5.0) and CLAUDE.md names that tag; if you upgrade one, upgrade both in the same commit or the guidance drifts from the binary."
+    - "Requires kaneo-cli >= 1.5.0 for `task get --key`. The vendored skill at `.agents/skills/kaneo-cli/` is pinned to the tag matching the installed CLI (v1.6.0) and CLAUDE.md names that tag; if you upgrade one, upgrade both in the same commit or the guidance drifts from the binary."
     - "`search global` is fuzzy and relevance-ranked, never identity resolution. Use it to find candidate work; use `task get --key` to establish identity."
 
 workspace:
