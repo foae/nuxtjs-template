@@ -419,7 +419,7 @@ Any agent that auto-loads none of this can just read the files: they are plain
 markdown and self-contained.
 
 `.agents/skills/kaneo-cli/` is vendored verbatim from
-[foae/kaneo-cli](https://github.com/foae/kaneo-cli) at tag **v1.4.0**, keeping
+[foae/kaneo-cli](https://github.com/foae/kaneo-cli) at tag **v1.5.0**, keeping
 it in lockstep with the installed CLI (`kaneo-cli version` reports the same).
 It is a plain committed copy under its own MIT licence, **not** a generated
 tree — rule 13 and the `MANIFEST.sha256` check do not apply to it. Update it

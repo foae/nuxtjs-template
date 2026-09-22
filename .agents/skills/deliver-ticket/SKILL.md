@@ -546,10 +546,12 @@ across template upgrades by the `adopt-deliver-ticket` skill.
   `rg "useFetch" app server shared tests scripts`.
 
 - **Resolving a Kaneo ticket key is a required first step, not a detail.**
-  `NUXT-12` is a display label; `task get --id` wants the server's opaque id
-  and there is no resolution command. Run `tracker.commands.resolve_id` with
-  `<N>` = 12, substitute the result into every later `<TASK_ID>`. An empty
-  result means the task does not exist — stop rather than guessing.
+  `NUXT-12` is a display label; `task get --id` wants the server's opaque id.
+  Run `tracker.commands.resolve_id` with `<ID>` = `NUXT-12` and substitute the
+  result into every later `<TASK_ID>`. It resolves exactly or fails: a bad or
+  ambiguous key exits 2 and the pipeline exits non-zero with no id, which is a
+  stop, not something to work around. Archived tasks resolve too, so a key
+  never silently fails because its work was archived. Needs kaneo-cli >= 1.5.0.
 
 - **A task is required before touching `app/`, `server/`, `shared/`, the
   database schema, CI, dependencies or a documented rule in `CLAUDE.md`.** It

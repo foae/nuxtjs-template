@@ -37,22 +37,30 @@ tracker:
     in_review: "in-review"
     done: "done"
   commands:                    # placeholders substituted at run time:
-                               #   <ID> ticket id, <STATE> target state name,
+                               #   <ID> the typed display key, e.g. NUXT-12
+                               #   <STATE> target state name,
                                #   <PREVIOUS> the state being left, <FILE> a body file
-                               #   <N> the numeric part of <ID> (12 for NUXT-12)
                                #   <TASK_ID> the opaque server id resolved by resolve_id
-    # There is NO key-to-ID resolution command in kaneo-cli. `task get --id`
-    # wants the opaque server id, so every command below is written against
-    # <TASK_ID> and you MUST run resolve_id first. See project notes.
-    resolve_id: "kaneo-cli task list --project-id pfnmngvzdwa1vw7hm29mu39s | jq -r '[.data.columns[].tasks[], (.data.archivedTasks[]? // empty), (.data.plannedTasks[]? // empty)] | map(select(.number == <N>)) | .[0].id'"
+    # `task get --id` wants the opaque server id, never the display key, so
+    # every command below is written against <TASK_ID> and resolve_id runs
+    # first. `--key` needs kaneo-cli >= 1.5.0; on 1.4.0 it is an unknown flag.
+    # Resolution is exact and client-side: the workspace's projects match on
+    # slug case-insensitively, then the board matches on task `number` across
+    # its columns AND its archived and planned buckets, so archived work still
+    # resolves. A bad or ambiguous key is exit 2 with the error on stderr and
+    # nothing on stdout; `jq -er` then exits non-zero rather than printing an
+    # empty id, so the pipeline fails instead of resolving to nothing.
+    resolve_id: "kaneo-cli task get --key <ID> --workspace-id 1OfREOYYokVjgGgfX1tIXWHmUK7PwJGF | jq -er '.id'"
     # Phase 0 must read the description AND every comment, which is two calls.
     view: "kaneo-cli task get --id <TASK_ID> && kaneo-cli comment list-task --task-id <TASK_ID>"
     set_state: "python3 -c 'import json,sys; print(json.dumps({\"status\": sys.argv[1]}))' '<STATE>' | kaneo-cli task update-status --id <TASK_ID> --body-file -"
     close: null                # Kaneo done is just another column, so set_state handles it
     comment: "python3 -c 'import json,sys; print(json.dumps({\"content\": open(sys.argv[1], encoding=\"utf-8\").read()}))' <FILE> | kaneo-cli comment create-task --task-id <TASK_ID> --body-file -"
-    # Deliberately NOT `auth get-session`: that prints a live session TOKEN to
-    # stdout and straight into the agent's context. `org list` proves the same
-    # credential without emitting one.
+    # Still deliberately NOT `auth get-session`. kaneo-cli 1.5.0 redacts
+    # `session.token` so that command no longer leaks, but the adopt-skill rule
+    # is to prefer a probe whose success output is ordinary metadata, and
+    # `org list` is that. It also keeps this working if the redaction ever
+    # regresses.
     auth_probe: "kaneo-cli org list"
   notes:
     - "KANEO_API_URL must include the /api path. The origin-only form fails with `process_failure: server returned an invalid JSON success body` and exit 1 — a message that never mentions the URL. Check the variable first when you see it."
@@ -65,6 +73,8 @@ tracker:
     - "Leave tasks unassigned unless a human owner is known. Never put machine names or model identities on a task."
     - "Keep credentials and private operational notes out of task bodies and comments; they reach shell history and tool logs."
     - "`task list` with no --page/--limit returns everything on one page. A JSON response over 8 MiB fails before anything reaches stdout: that is a failure, not an empty list."
+    - "Requires kaneo-cli >= 1.5.0 for `task get --key`. The vendored skill at `.agents/skills/kaneo-cli/` is pinned to the tag matching the installed CLI (v1.5.0) and CLAUDE.md names that tag; if you upgrade one, upgrade both in the same commit or the guidance drifts from the binary."
+    - "`search global` is fuzzy and relevance-ranked, never identity resolution. Use it to find candidate work; use `task get --key` to establish identity."
 
 workspace:
   mode: worktree               # worktree | in-place
