@@ -16,7 +16,7 @@ license: MIT
 metadata:
   author: "foae"
   template: adopt-deliver-ticket
-  template_version: "1.0"
+  template_version: "1.1"
   adopted: "2026-09-22"
 ---
 
@@ -84,7 +84,9 @@ impossible: Phases 11 and 12 are skipped.
   `tracker.id_pattern` decides whether the argument is an ID or free text,
   `tracker.commands.auth_probe` runs once in Phase 0 before the first tracker
   call (a failed probe means tracker steps degrade to no-ops and the wrap-up
-  says so), `gates.source` is the file to re-read when a gate looks stale,
+  says so), `tracker.commands.resolve_id` — when set — turns that typed
+  reference into the id every other tracker command needs,
+  `gates.source` is the file to re-read when a gate looks stale,
   `deploy.target_class` goes in the Phase 3 deploy question and the wrap-up so
   the human knows what they authorised, and every `notes:` list is prose you
   must read before using that capability's commands. `project.languages`,
@@ -156,7 +158,15 @@ Anything not in this table runs sequentially.
    specification and you cannot invent it. Report the probe failure and ask
    for the task description or for the credential to be fixed. If it fails
    but the invocation also carried a task description, continue with every
-   tracker step as a no-op and say so in the wrap-up. For a tracker ID, read the ticket with `tracker.commands.view` **in
+   tracker step as a no-op and say so in the wrap-up. For a tracker ID, and
+   only when the probe succeeded: **if `tracker.commands.resolve_id` is set,
+   run it before any other tracker command.** The reference the user typed is
+   a display label and the API takes a different id. It must print exactly one
+   id; zero or several means the label is wrong or ambiguous, which is a stop,
+   not a guess. Every later `<ID>` in this file is the resolved id, and the
+   label is what you write in prose for the human. In ticket-less mode there
+   is nothing to resolve and this step does not run.
+   Then read the ticket with `tracker.commands.view` **in
    full**: description, every comment, and every linked document or spec.
    There is no marker convention; planning notes, heads-ups and constraints
    appear anywhere in the body or comments and all of them bind. Extract them
@@ -221,7 +231,7 @@ Per sidecar (`workspace`):
 3. **Ask the review panel last, always.** This question is never skipped:
    only the user knows what this change is worth. Offer the panels the
    installed `multi-llm-review` skill defines (`fast`, `default`, `pro`,
-   `ultra` as of template 1.0) with your recommendation based on blast radius
+   `ultra` as of template 1.1) with your recommendation based on blast radius
    and reversibility, not diff size. The sidecar's `review.default_panel` is
    the recommendation when nothing argues otherwise. Say which seats will
    self-skip because they match your own model. If the skill is absent on
@@ -600,14 +610,10 @@ across template upgrades by the `adopt-deliver-ticket` skill.
 
 - **This skill lives at `.agents/skills/deliver-ticket/`, and
   `.claude/skills/deliver-ticket/` is the same directory** seen through the
-  repo-level `.claude/skills -> ../.agents/skills` symlink. That inverts what
-  `adopt-deliver-ticket` normally renders (real files under `.claude/`, a
-  per-skill symlink under `.agents/`), so **there is no per-skill symlink here
-  and there must not be** — one would point at itself. `check-adoption.sh`
-  fails its last assertion for this reason alone; that failure is expected and
-  is not a broken adoption. Do not "fix" it by moving the files under
-  `.claude/`: CLAUDE.md forbids that explicitly.
-
-- **`.backlog/` is a stale empty tree** left by the file-based tracker Kaneo
-  replaced in NUXT-1. It is untracked and harmless; ignore it, and do not
-  resurrect it as a second source of truth.
+  repo-level `.claude/skills -> ../.agents/skills` symlink. That is the
+  linked-root layout, so **there is no per-skill symlink here and there must
+  not be** — one would point at itself. `check-adoption.sh` has accepted this
+  layout since template 1.1 and asserts that both roots reach the skill; a
+  failure there is now a real failure, not this repo's quirk. Do not "fix" the
+  layout by moving the files under `.claude/`: CLAUDE.md forbids it, and it is
+  what keeps one copy serving Claude Code, OpenCode and pi alike.
