@@ -123,7 +123,8 @@ pr:
   bots: []                     # none observed; this repo has never had a PR
   notes:
     - "This repo had ZERO merged PRs at adoption — every commit went straight to main. There is no PR-bot roster and no branch protection to lean on, so gate on what `gh pr checks` actually reports."
-    - "The `ci` aggregate job is the one to require in branch protection, and the README fork checklist says so, but it is NOT yet configured here. Until it is, verify green CI yourself on the exact head SHA; nothing will block a merge for you."
+    - "The `ci` aggregate job IS required on main (ruleset 23820768, added 2026-09-22 under NUXT-6), with the repository admin role as an always-on bypass actor so direct commits to main still work. Never require the individual jobs instead: a job skipped because its dependency failed reports Success, which is exactly the hole `ci` closes."
+    - "Still verify CI yourself on the exact head SHA before merging. The ruleset blocks a red merge, but `gh pr checks` does not print WHICH SHA it checked, so compare deliberately rather than trusting the listing."
     - "CI SKIPS PROSE-ONLY CHANGES. If every changed file is .md or LICENSE (excluding _vendor/** and .agents/skills/nuxt-ui/**, which are generated and hashed), verify/audit/e2e/docker report Success as SKIPPED jobs without running. A green check on a docs PR proves nothing ran."
     - "DO NOT ADD AI AUTHORSHIP OR CO-AUTHOR CREDITS to commits or PR bodies. CLAUDE.md forbids them and, as a project instruction, it overrides the harness's default attribution guidance. Retain necessary tool-integration references and upstream copyright notices."
     - "Reference the Kaneo task key in the commit message (`feat: add comment threads (NUXT-12)`). Nothing under version control records the task, so this is the only link between a commit and its rationale."

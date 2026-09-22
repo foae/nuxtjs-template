@@ -200,8 +200,9 @@ as private.
   disposable `_e2e` database. Never reuse deployed data for fixtures.
 - Make the aggregate **`ci`** check required in GitHub branch protection.
   Workflow files do not configure that setting for a fork.
-- Activate Renovate for the fork; committing `renovate.json` does not install
-  or authorize the service.
+- Set up automated dependency updates if you want them. This template ships no
+  Renovate or Dependabot config: committing one does not install or authorize
+  the service, so a fork configures whichever it actually uses.
 - Set up task tracking: install the `kaneo-cli` separately, export
   `KANEO_API_URL` (including the `/api` path), run `kaneo-cli auth login`, and
   create a Kaneo project named for the fork. Add the `Blocked` column — a new

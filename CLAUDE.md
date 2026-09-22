@@ -396,6 +396,7 @@ the rest are worth opening only when the task needs them:
 | **changing the database** | **Changing the database** below |
 | **checking your work actually behaves** | **Done means two things**, half 2, above |
 | **tracking the change you were asked to make** | **Task management — Kaneo** above; commands in `.agents/skills/kaneo-cli/SKILL.md` |
+| delivering a tracked ticket end to end | `.agents/skills/deliver-ticket/SKILL.md` — automates the workflow above, worktree through merge |
 | debugging your own server error | `.logs/dev-errors.jsonl` |
 
 Skills live in **`.agents/skills/`** — the vendor-neutral
