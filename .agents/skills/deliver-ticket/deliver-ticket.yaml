@@ -4,7 +4,7 @@
 # substituted. A null value with state != adopted is expected, not an error.
 #
 # Strict YAML: quote any value containing ": " or " #".
-template_version: "1.1"
+template_version: "1.2"
 adopted_on: "2026-09-22"
 
 project:

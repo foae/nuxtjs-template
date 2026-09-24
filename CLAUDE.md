@@ -130,10 +130,17 @@ The full command reference is the vendored skill at
   fallback for a body you need to reuse — `umask 077` directory, same shell
   invocation, deleted afterwards. Task text is private data either way, and
   still reaches shell history and tool logs, so keep secrets out of bodies.
-- **`task list` with no `--page`/`--limit` returns everything on one page** —
-  omit both for ordinary discovery. A JSON response over 8 MiB fails before
-  anything reaches stdout: that is a failure, not an empty list. Only then
-  paginate, and read `pagination.totalPages` rather than stopping at page 1.
+- **`task list` is paginated — page 1 is not the board.** On Kaneo 2.26 and
+  later a response holds at most 50 tasks by default (`--limit` raises it to
+  100); only 2.25 returned everything when `--page`/`--limit` were omitted.
+  Read `pagination.totalPages` and walk every page with
+  `--sort-by number --sort-order asc` — the default `position` order has ties,
+  so pages under it can skip or repeat tasks. When
+  `pagination.relatedTotalPages` exceeds 1, labels, links and column metadata
+  on that page are truncated: repeat it with `--related-page`. A description
+  over 64 KiB arrives as null with `descriptionDeferred: true`; read it with
+  `task get-description`. A JSON response over 8 MiB fails before anything
+  reaches stdout: that is a failure, not an empty list — lower `--limit`.
   The board it returns holds tasks in **three** places — `data.columns[].tasks`,
   `data.plannedTasks` (the UI's Backlog) and `data.archivedTasks` — so a walk
   over `columns` alone misses work that exists. Narrow with `--status`.
@@ -432,7 +439,7 @@ Any agent that auto-loads none of this can just read the files: they are plain
 markdown and self-contained.
 
 `.agents/skills/kaneo-cli/` is vendored verbatim from
-[foae/kaneo-cli](https://github.com/foae/kaneo-cli) at tag **v1.6.0**, keeping
+[foae/kaneo-cli](https://github.com/foae/kaneo-cli) at tag **v1.7.0**, keeping
 it in lockstep with the installed CLI (`kaneo-cli version` reports the same).
 It is a plain committed copy under its own MIT licence, **not** a generated
 tree — rule 13 and the `MANIFEST.sha256` check do not apply to it. Update it

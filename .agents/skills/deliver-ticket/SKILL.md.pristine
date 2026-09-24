@@ -16,7 +16,7 @@ license: MIT
 metadata:
   author: "foae"
   template: adopt-deliver-ticket
-  template_version: "1.1"
+  template_version: "1.2"
   adopted: "2026-09-22"
 ---
 
