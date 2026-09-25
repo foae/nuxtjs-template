@@ -52,14 +52,34 @@ template, and a hardcoded address is both wrong for every fork and needless
 disclosure. `kaneo-cli auth login` stores the credential; run it only when
 asked, and never pass a key as a literal argument.
 
-Find this repository's project by discovery rather than a recorded ID, so a
-fork works unchanged:
+**This repository's board is fixed — do not go looking for it.** Every task
+for this repo lives in exactly one Kaneo project:
+
+| | Value |
+|---|---|
+| Project | **nuxtjs-template** |
+| Task key prefix (project slug) | **`NUXT`** — tasks are `NUXT-1`, `NUXT-2`, … |
+| Workspace id | `1OfREOYYokVjgGgfX1tIXWHmUK7PwJGF` |
+| Project id | `pfnmngvzdwa1vw7hm29mu39s` |
+
+The workspace also holds other projects (for example `agent-feedback.io`,
+key `AF`). They are never this repo's board, so never file, move or search
+this repo's work there. Use these values directly:
 
 ```bash
-kaneo-cli org list                                  # the org `id` IS the workspace id
-kaneo-cli project list --workspace-id "$WORKSPACE_ID"   # match the project named for this repo
+WORKSPACE_ID=1OfREOYYokVjgGgfX1tIXWHmUK7PwJGF
+PROJECT_ID=pfnmngvzdwa1vw7hm29mu39s
+kaneo-cli task get --key NUXT-12 --workspace-id "$WORKSPACE_ID"   # key → task
 kaneo-cli column list --project-id "$PROJECT_ID"    # slugs, not labels, are status values
 ```
+
+These are ids, not an address. The instance stays in `KANEO_API_URL`. **A
+fork replaces the four values above** (and the same two ids in
+`.agents/skills/deliver-ticket/deliver-ticket.yaml`) with its own. It finds
+them once with `kaneo-cli org list` (the org `id` is the workspace id), then
+`kaneo-cli project list --workspace-id "$WORKSPACE_ID"`. If a command against
+these ids returns not-found, stop and report it; don't substitute whichever
+project looks similar.
 
 The board columns, in order, are **To Do, In Progress, Blocked, In Review,
 Done** — slugs `to-do`, `in-progress`, `blocked`, `in-review`, `done`, with
