@@ -68,6 +68,69 @@ these: **`Blocked` does not exist by default** and must be created and
 reordered to position 2. Leave tasks unassigned unless a human owner is known;
 do not put machine names or model identities in the template.
 
+### Where a ticket lives — board organisation
+
+Besides the five columns, every project has two buckets that are **statuses,
+not columns**: **Backlog** (reserved status `planned`, the board's
+`plannedTasks`) and **Archive** (`archived`, `archivedTasks`). Neither
+remembers the column a task came from. Each place has one meaning:
+
+| Place | Status | Holds | Leaves when |
+|---|---|---|---|
+| Backlog | `planned` | raw ideas: a title and whatever the author knew, nothing refined | it is refined (→ `to-do`) or rejected (→ `archived`) |
+| To Do | `to-do` | **ready** work — anyone could pick it up now without asking what it means | work starts (→ `in-progress`) |
+| In Progress | `in-progress` | work actively being done, plan recorded as a comment | it is stalled (→ `blocked`) or implemented and locally verified (→ `in-review`) |
+| Blocked | `blocked` | started work stopped by a named impediment, recorded with the stage to resume | the blocker clears (→ the column it left) |
+| In Review | `in-review` | implemented and locally verified; review, merge and any post-merge verification happen here | it has landed on `main` and passed verification (→ `done`) or review sends it back (→ `in-progress`) |
+| Done | `done` | work landed on `main`. **Stays here — never archive done work** | only if the change is reverted (→ `in-progress`, with a comment naming the revert) |
+| Archive | `archived` | **cancelled work only**: rejected ideas, abandoned tickets, duplicates | a cancellation is reversed (name the destination) |
+
+The table lists the forward path, not every legal move. Two exits apply
+everywhere: any ticket not yet `done` may be **cancelled** (→ `archived`), and
+any started ticket — `in-progress` or `in-review` — may be **blocked** (→
+`blocked`) by a real impediment. Waiting for a reviewer is not one.
+
+**New ideas go to the Backlog.** Anything captured but not yet thought
+through — a user's passing idea, a follow-up spotted mid-task, a pre-existing
+issue reported rather than fixed — is created with `"status":"planned"`. Do
+not put an idea in To Do to make it look scheduled.
+
+**Promote Backlog → To Do only when the ticket is ready**, which means all of:
+the intent is stated in a sentence; acceptance criteria are observable (the
+"Done means two things" halves can check them); open questions are resolved (a
+ticket still waiting on an answer stays in the Backlog); priority is set to
+something other than `no-priority`; and its description states what it
+depends on — or "Depends on: nothing". A dependency on another task is also
+recorded as a `blocks` relation **with the blocker as the source** (the
+kaneo-cli skill: "the source blocks the target"); the description line is
+still required because `task get` does not return relations. Refining is editing the description with `task update-description`,
+never `task update` (it replaces the whole task). A ticket the user asks you
+to do right now can be created straight into `to-do` — then it must meet the
+same bar.
+
+**Don't start from the Backlog.** A `planned` ticket someone asks you to
+implement is refined and moved to `to-do` first, or the gaps are put to the
+user; `deliver-ticket` ends its run on one rather than improvising its
+scope. Pick up work from To Do in priority order, skipping any ticket whose
+blocker is not `done` (`kaneo-cli task-relation list-task --task-id …`).
+
+**Cancelling is archiving with a reason.** Never delete a task — the reason
+it was dropped is the part worth keeping. To cancel:
+
+1. Comment `Cancelled: <why>` — rejected, superseded, obsolete, or duplicate.
+   A duplicate also gets a `related` relation to the surviving task, and its
+   comment names that task's key.
+2. Set status `archived`.
+
+Anything that had reached `in-progress` records what was done and where it
+lives (branch, PR) in that comment. Because Done is never archived, Archive
+means dropped and needs no label. Reviving one means writing a status back
+— `planned` if it needs rethinking, `to-do` if it is still ready.
+
+Keep the board honest: a ticket's place must match reality. When you finish a
+task, check whether anything in To Do is now obsolete (cancel it) and whether
+the Backlog gained ideas during the work (file them as `planned`).
+
 ### The workflow
 
 1. Search before creating:
@@ -84,10 +147,13 @@ do not put machine names or model identities in the template.
    `totalCount` equals the number of results returned, otherwise it is
    truncated and you must list the project instead. Inspect candidates with
    `kaneo-cli task get --id "$TASK_ID"`.
-2. Create the task with the user's intent and observable acceptance criteria.
+2. Create the task. A `to-do` ticket carries the user's intent and observable
+   acceptance criteria (the readiness bar above); a `planned` idea needs only a
+   title and what is known — do not invent criteria for it.
    `task create` requires **all four** of `title`, `description`, `priority`
    and `status` in the body — there are no defaults, so a new ticket must name
-   `to-do` rather than falling into it. `priority` is an enum:
+   its place: `planned` for a raw idea, `to-do` for ready work (see **Where a
+   ticket lives** above). `priority` is an enum:
    `no-priority`, `low`, `medium`, `high`, `urgent`.
 
    ```bash
@@ -439,12 +505,15 @@ Any agent that auto-loads none of this can just read the files: they are plain
 markdown and self-contained.
 
 `.agents/skills/kaneo-cli/` is vendored verbatim from
-[foae/kaneo-cli](https://github.com/foae/kaneo-cli) at tag **v1.7.0**, keeping
+[foae/kaneo-cli](https://github.com/foae/kaneo-cli) at tag **v1.8.0**, keeping
 it in lockstep with the installed CLI (`kaneo-cli version` reports the same).
 It is a plain committed copy under its own MIT licence, **not** a generated
 tree — rule 13 and the `MANIFEST.sha256` check do not apply to it. Update it
-by re-copying `skills/kaneo-cli/` from the tag matching the installed CLI, and
-bump the version named here at the same time; never hand-edit the copy, or the
+by re-copying `skills/kaneo-cli/` from the tag matching the installed CLI
+(the copy's `metadata.version` then records it), and in the same commit bump
+the tag everywhere else it is named: here, the pin note in
+`.agents/skills/deliver-ticket/deliver-ticket.yaml` and the `_vendor/` note in
+that skill's `SKILL.md` project notes. Never hand-edit the copy, or the
 guidance silently drifts from the binary it describes.
 
 ---

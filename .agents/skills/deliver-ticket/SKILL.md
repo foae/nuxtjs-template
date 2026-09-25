@@ -553,6 +553,20 @@ across template upgrades by the `adopt-deliver-ticket` skill.
   stop, not something to work around. Archived tasks resolve too, so a key
   never silently fails because its work was archived. Needs kaneo-cli >= 1.5.0.
 
+- **Only deliver a ticket that is in To Do (or already in flight).** This is
+  a Phase 0 precondition, the same class as an unresolvable key — not a new
+  gate. The board has two buckets outside its columns: Backlog (`planned`) for
+  raw ideas and Archive (`archived`) for cancelled work; CLAUDE.md's **Where a
+  ticket lives** table is the source of truth. Deliver a ticket in `to-do`, or
+  one in flight (`in-progress`, `blocked`, `in-review`). A `planned` ticket (not
+  ready), an `archived` one (cancelled; report its `Cancelled:` comment), a
+  `done` one, or a `to-do` one whose `blocks` source is not `done` ends the run
+  with a report before any state change; refining it is a separate
+  conversation. This skill moves the ticket to `in-review` after the merge
+  (Phase 10), later than CLAUDE.md's manual workflow; both keep the invariant
+  that matters — `done` only after it has landed and been verified. Follow-up
+  ideas found during delivery are filed as `planned`, never `to-do`.
+
 - **A task is required before touching `app/`, `server/`, `shared/`, the
   database schema, CI, dependencies or a documented rule in `CLAUDE.md`.** It
   is not required for a typo, a formatting fix or a comment-only edit — those
@@ -564,7 +578,7 @@ across template upgrades by the `adopt-deliver-ticket` skill.
   destroys your work silently** and fails `pnpm verify` via their
   `MANIFEST.sha256`. To change their content, change the script that writes it
   (`scripts/docs-sync.ts`, `scripts/skills-sync.ts`). `.agents/skills/kaneo-cli/`
-  is different: a plain committed copy vendored from upstream v1.6.0 under its
+  is different: a plain committed copy vendored from upstream v1.8.0 under its
   own MIT licence, exempt from that rule, updated by re-copying from the tag
   matching the installed CLI.
 

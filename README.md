@@ -294,7 +294,9 @@ comment-only edits do not need a ticket. The board columns are `To Do`,
 `In Progress`, `Blocked`, `In Review` and `Done`, in that order, and a project
 created fresh in Kaneo does **not** include `Blocked` until you add it. Kaneo
 has no default column: `status` is a required field on create, so a new ticket
-must name `to-do` explicitly rather than falling into it. Search first, record acceptance criteria and the
+must name its place explicitly — `planned` (the Backlog) for a raw idea,
+`to-do` for ready work. Cancelled work is archived with a `Cancelled:` comment,
+never deleted; see **Where a ticket lives** in `CLAUDE.md`. Search first, record acceptance criteria and the
 implementation plan, and capture verification evidence as comments. Move stuck
 work to `Blocked` with a note identifying the blocker and the stage to resume.
 
